@@ -148,28 +148,59 @@ const About = () => {
         const bgVals: any = {};
 
         const nextBgVals: any = {};
-        const nextIobVals: any = {};
-
         let prevBgIndex = -1;
-        let prevIobIndex = -1;
 
         for (let i = 0; i <= 1440; i +=5) {
           if (data[i]?.bg) {
             console.log(data[i].bg);
-            nextBgVals[prevBgIndex] = data[i].bg;
+            nextBgVals[prevBgIndex] = data[i];
             bgVals[i] = data[i].bg;
             prevBgIndex = i;
-          }
-          if (data[i]?.shot) {
-            console.log(data[i].shot);
-            nextIobVals[prevIobIndex] = data[i].shot;
-            iobVals[i] = data[i].shot;
-            prevIobIndex = i;
           }
         }
 
         console.log('nextBgVals:', nextBgVals);
-        console.log('nextIobVals:', nextIobVals);
+
+        const slopeFunctionList = [];
+
+        const shotFunctionCreator = (shot: number, time: number) => (IobNow: number, timeNow: number) => {
+          const elapsed = timeNow - time;
+          let slope;
+          if (elapsed < 40 ) {
+            slope = 0;
+          } else if (elapsed < 90) {
+            slope = shot / 10;
+          } else if (elapsed < 110) {
+            slope = 0;
+          } else if (elapsed < 240) {
+            slope = -(shot / 26);
+          } else {
+            return null;
+          }
+          return IobNow + slope;
+        };
+
+        for (let i = 0; i <= 1440; i +=5) {
+          // calc BGs
+
+          // add current shot waveform function
+          if (data[i]?.shot > 0) {
+            slopeFunctionList.push(shotFunctionCreator(data[i].shot, i));
+          }
+
+          // calc IOB
+          slopeFunctionList.forEach((el: any, idx: number) => {
+            if (el) {
+              const newIob = el(currentIob, i);
+              if (newIob === null) {
+                slopeFunctionList[idx] = null;
+              } else {
+                currentIob = newIob;
+              }
+            }
+          });
+          iobVals[i] = currentIob;
+        }
 
         return [iobVals, bgVals];
       }
@@ -211,18 +242,25 @@ const About = () => {
 
         return entryData.map((entry: any) => {
           const {bg, bgLabel, bgDisplay, iob, shot, time, notes} = entry;
-          const leftText = bgDisplay ? (bg + ' ' + (bgLabel ? (bgLabel + ' ') : '')) : null;
+          const leftText = bgDisplay ? (bg + ' ' + ((bgLabel && (bg > 50)) ? (bgLabel + ' ') : '')) : null;
           let rightText = '';
-          rightText += shot ? shot + ' ' : '';
-          rightText += bg ? bg + ' ' + (bgLabel ? (bgLabel + ' ') : '') : '';
-          rightText += (bg || shot || notes || !(time % 20)) ? time + ' ' : '';
+          let rightTextColor = 'black';
+          if (shot < 0) {
+            rightText += `(${shot * -1} units basal at ${time}) `;
+            rightTextColor = 'red';
+          } else {
+            rightText += shot ? shot + ' ' : '';
+            rightText += bg ? bg + ' ' + (bgLabel ? (bgLabel + ' ') : '') : '';
+            rightText += (bg || shot || notes || !(time % 20)) ? time + ' ' : '';
+          }
           rightText += notes ? notes : '';
 
           return {
             bg,
             iob,
             leftText,
-            rightText
+            rightText,
+            rightTextColor
           }
         })
 
@@ -233,26 +271,26 @@ const About = () => {
         // console.log('minutes data to transform:', dataAllMinutes);
 
         return dataAllMinutes.reduce((acc: any, minuteData: any) => {
-          const {bg, iob, leftText, rightText} = minuteData;
+          const {bg, iob, leftText, rightText, rightTextColor} = minuteData;
 
           if (bg || iob || leftText || rightText) acc.push({
             maxLeft: 400,
             maxRight: 800,
             leftValue: bg,
-            leftColorMain: "green",
-            leftColorExtra: "maroon",
+            leftColorMain: "darkcyan",
+            leftColorExtra: "brown",
             leftColorExtraThreshold: 180,
             leftText,
             leftTextColor: "white",
             rightValue: (iob * 50),
-            rightColorMain: "lightblue",
+            rightColorMain: "lightskyblue",
             rightColorExtra: "pink",
             rightColorExtraThreshold: 300,
             rightText,
-            rightTextColor: "black",
+            rightTextColor,
             centerBarValue: 10,
             centerBarColor: "black",
-            backGroundColor: "grey"
+            backGroundColor: "lightgrey"
           });
 
           return acc;
@@ -271,7 +309,7 @@ const About = () => {
             "leftText": "108",
             "leftTextColor": "white",
             "rightValue": 200,
-            "rightColorMain": "lightblue",
+            "rightColorMain": "lightskyblue",
             "rightColorExtra": "pink",
             "rightColorExtraThreshold": 150,
             "rightText": "3 108 wal pizza",
