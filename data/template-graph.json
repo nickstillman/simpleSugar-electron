@@ -1,0 +1,41 @@
+[
+          {
+            "maxLeft": 400,
+            "maxRight": 400,
+            "leftValue": 98,
+            "leftColorMain": "green",
+            "leftColorExtra": "maroon",
+            "leftColorExtraThreshold": 180,
+            "leftText": "108",
+            "leftTextColor": "white",
+            "rightValue": 200,
+            "rightColorMain": "lightblue",
+            "rightColorExtra": "pink",
+            "rightColorExtraThreshold": 150,
+            "rightText": "3 108 wal pizza",
+            "rightTextColor": "black",
+            "centerBarValue": 20,
+            "centerBarColor": "black",
+            "backGroundColor": "grey"
+          },
+          {
+            "maxLeft": 400,
+            "maxRight": 400,
+            "leftValue": 540,
+            "leftColorMain": "green",
+            "leftColorExtra": "maroon",
+            "leftColorExtraThreshold": 180,
+            "leftText": "108",
+            "leftTextColor": "white",
+            "rightValue": 100,
+            "rightColorMain": "lightblue",
+            "rightColorExtra": "pink",
+            "rightColorExtraThreshold": 150,
+            "rightText": "54 ice cream",
+            "rightTextColor": "black",
+            "centerBarValue": 20,
+            "centerBarColor": "black",
+            "backGroundColor": "grey"
+          }
+        ]
+
