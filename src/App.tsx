@@ -82,34 +82,34 @@ const About = () => {
 
       const rightBarTotal = entry.rightValue ? entry.rightValue <= entry.maxRight ? entry.rightValue : entry.maxRight : 0;
 
-      const centerBar = <span className="spaceBar" style={{width: entry.centerBarValue, backgroundColor: entry.centerBarColor}}></span>;
+      const centerBar = <span className="spaceBar" key={ `centerBar${i}` } style={{width: entry.centerBarValue, backgroundColor: entry.centerBarColor}}></span>;
 
       let spaceBar;
-      spaceBar = leftSpace ? <span className="spaceBar" style={{width: leftSpace, backgroundColor: entry.backGroundColor}}></span> : null;
+      spaceBar = leftSpace ? <span className="spaceBar" key={ `spaceBar${i}` } style={{width: leftSpace, backgroundColor: entry.backGroundColor}}></span> : null;
 
-      const leftText = <span className='displayText' style={{color: entry.leftTextColor}}>{ entry.leftText }</span>
+      const leftText = <span className='displayText' key={ `leftText${i}` } style={{color: entry.leftTextColor}}>{ entry.leftText }</span>
 
-      const rightText = <span className='displayText' style={{color: entry.rightTextColor, marginLeft: '8px'}}>{ ' ' + entry.rightText }</span>
+      const rightText = <span className='displayText' key={ `rightText${i}` } style={{color: entry.rightTextColor, marginLeft: '8px'}}>{ ' ' + entry.rightText }</span>
 
       let leftBar;
       if (entry.leftColorExtraThreshold && leftBarTotal > entry.leftColorExtraThreshold) {
-        const leftHigh = <span className="bgBar" style={{width: leftBarTotal - entry.leftColorExtraThreshold, backgroundColor: entry.leftColorExtra}}></span>
-        const leftLow = <span className="bgBar" style={{width: entry.leftColorExtraThreshold, backgroundColor: entry.leftColorMain, color: entry.leftTextColor}}>{ leftText }</span>
+        const leftHigh = <span className="bgBar" key={ `leftHigh${i}` } style={{width: leftBarTotal - entry.leftColorExtraThreshold, backgroundColor: entry.leftColorExtra}}></span>
+        const leftLow = <span className="bgBar" key={ `leftLow${i}` } style={{width: entry.leftColorExtraThreshold, backgroundColor: entry.leftColorMain, color: entry.leftTextColor}}>{ leftText }</span>
         leftBar = [leftHigh, leftLow];
       } else {
-        leftBar = <span className="bgBar" style={{width: leftBarTotal, backgroundColor: entry.leftColorMain, color: entry.leftTextColor}}>{ leftText }</span>;
+        leftBar = <span className="bgBar" key={ `leftBar${i}` } style={{width: leftBarTotal, backgroundColor: entry.leftColorMain, color: entry.leftTextColor}}>{ leftText }</span>;
       }
 
       let rightBar;
       if (entry.rightColorExtraThreshold && rightBarTotal > entry.rightColorExtraThreshold) {
-        const rightHigh = <span className="iobBar" style={{width: rightBarTotal - entry.rightColorExtraThreshold, backgroundColor: entry.rightColorExtra}}></span>
-        const rightLow = <span className="iobBar" style={{width: entry.rightColorExtraThreshold, backgroundColor: entry.rightColorMain, color: entry.rightText}}></span>
+        const rightHigh = <span className="iobBar" key={ `rightHigh${i}` } style={{width: rightBarTotal - entry.rightColorExtraThreshold, backgroundColor: entry.rightColorExtra}}></span>
+        const rightLow = <span className="iobBar" key={ `leftHigh${i}` } style={{width: entry.rightColorExtraThreshold, backgroundColor: entry.rightColorMain, color: entry.rightText}}></span>
         rightBar = [rightLow, rightHigh];
       } else {
-        rightBar = <span className="iobBar" style={{width: rightBarTotal, backgroundColor: entry.rightColorMain, color: entry.rightText}}></span>;
+        rightBar = <span className="iobBar" key={ `rightBar${i}` } style={{width: rightBarTotal, backgroundColor: entry.rightColorMain, color: entry.rightText}}></span>;
       }
 
-      const rightSpaceBar = <span className="spaceBar">{ rightText }</span>;
+      const rightSpaceBar = <span className="spaceBar" key={ `rightSpaceBar${i}` }>{ rightText }</span>;
 
       return (
         <div className="graphBar" key={ `graphBar${i}` }>
@@ -141,47 +141,78 @@ const About = () => {
 
       const calcIobAndBgVals = (data: any) => {
 
-        let currentBg = 100;
+        let currentBg = 100; // change? unicorn for now
+        let currentBgSlope = 0;
+        let noMoreBg = false;
+
         let currentIob = 0;
 
         const iobVals: any = {};
         const bgVals: any = {};
 
         const nextBgVals: any = {};
-        let prevBgIndex = -1;
+
+        // initialize starting pre-0-time bg to currentBg value set above
+        bgVals[-5] = currentBg;
+        let prevBgIndex = -5;
 
         for (let i = 0; i <= 1440; i +=5) {
           if (data[i]?.bg) {
             console.log(data[i].bg);
+            // check for valid blood sugar values? ie. bg > 20 and bg < 600
             nextBgVals[prevBgIndex] = data[i];
             bgVals[i] = data[i].bg;
             prevBgIndex = i;
           }
         }
+        currentBgSlope = (nextBgVals[-5].bg - bgVals[-5]) / ((nextBgVals[-5].time + 5) / 5);
 
         console.log('nextBgVals:', nextBgVals);
 
         const slopeFunctionList = [];
 
-        const shotFunctionCreator = (shot: number, time: number) => (IobNow: number, timeNow: number) => {
+        const shotFunctionCreator = (shot: number, time: number) => (iobNow: number, timeNow: number) => {
           const elapsed = timeNow - time;
           let slope;
+          let onsetLagComputed = false;
+          let middlePeakComputed = false;
           if (elapsed < 40 ) {
             slope = 0;
+            onsetLagComputed = true;
           } else if (elapsed < 90) {
             slope = shot / 10;
           } else if (elapsed < 110) {
+            if (elapsed === 100) {
+              middlePeakComputed = true;
+            }
             slope = 0;
           } else if (elapsed < 240) {
             slope = -(shot / 26);
           } else {
-            return null;
+            return {newIob: null};
           }
-          return IobNow + slope;
+          return {newIob: (iobNow + slope), onsetLagComputed, middlePeakComputed};
         };
 
+        // don't display middlePeak if iob hasn't changed
+        let throttleMiddlePeakDisplay = false;
+        let oldIob = currentIob;
+
         for (let i = 0; i <= 1440; i +=5) {
+
           // calc BGs
+          if (bgVals[i]) {
+            console.log('i:', i)
+            currentBg = bgVals[i];
+            if (!nextBgVals[i]) {
+              noMoreBg = true;
+            } else {
+              currentBgSlope = (nextBgVals[i].bg - bgVals[i]) / ((nextBgVals[i].time - i) / 5);
+            }
+          } else if (!noMoreBg) {
+            bgVals[i] = bgVals[i - 5] + currentBgSlope;
+          }
+
 
           // add current shot waveform function
           if (data[i]?.shot > 0) {
@@ -189,17 +220,36 @@ const About = () => {
           }
 
           // calc IOB
+          let onsetLag = false;
+          let middlePeak = false;
           slopeFunctionList.forEach((el: any, idx: number) => {
             if (el) {
-              const newIob = el(currentIob, i);
+              const {newIob, onsetLagComputed, middlePeakComputed} = el(currentIob, i);
               if (newIob === null) {
                 slopeFunctionList[idx] = null;
               } else {
                 currentIob = newIob;
               }
+              if (onsetLagComputed) {
+                onsetLag = true;
+              }
+              if (middlePeakComputed && !throttleMiddlePeakDisplay) {
+                middlePeak = true;
+                throttleMiddlePeakDisplay = true;
+              }
             }
           });
-          iobVals[i] = currentIob;
+          if (currentIob < .1) {
+            currentIob = 0;
+          }
+          iobVals[i] = {iob: currentIob, onsetLag, middlePeak};
+          // instead of middlePeak, show IOB peak whenever iob begins to drop
+          // after previously rising
+          // or simply don't reshow middlePeak if iob hasn't risen again?
+          if (throttleMiddlePeakDisplay && (currentIob !== oldIob)) {
+            throttleMiddlePeakDisplay = false;
+          };
+          oldIob = currentIob;
         }
 
         return [iobVals, bgVals];
@@ -211,21 +261,29 @@ const About = () => {
         const [iobVals, bgVals] = calcIobAndBgVals(data);
 
         for (let i = 0; i <= 1440; i += 5) {
+          const {iob, onsetLag, middlePeak} = iobVals[i];
+
           if (data[i]) {
             const {bg, bgLabel, shot, time, notes} = data[i];
             output[i] = {
               ...data[i],
-              iob: iobVals[i],
-              bgDisplay: (bg >= 20)
+              iob,
+              onsetLag,
+              middlePeak,
+              bgDisplay: (bg >= 20),
+              bgLogged: bg
             }
           } else {
             output[i] = {
               bg: bgVals[i],
+              bgLogged: null,
               bgLabel: null,
               shot: null,
               time: i,
               notes: null,
-              iob: iobVals[i],
+              iob,
+              onsetLag,
+              middlePeak,
               bgDisplay: false
             }
           }
@@ -241,26 +299,38 @@ const About = () => {
         const entryData: any = makeDataMaps(data); // build bgMap and iobMap, combine to entryData
 
         return entryData.map((entry: any) => {
-          const {bg, bgLabel, bgDisplay, iob, shot, time, notes} = entry;
+          const {bg, bgLogged, bgLabel, bgDisplay, iob, onsetLag, middlePeak, shot, time, notes} = entry;
           const leftText = bgDisplay ? (bg + ' ' + ((bgLabel && (bg > 50)) ? (bgLabel + ' ') : '')) : null;
           let rightText = '';
           let rightTextColor = 'black';
+
+          let iobToDisplay = iob >= .1 ? iob : 0;
+          if (onsetLag && (!iob || iob < .2)) {
+            iobToDisplay = .1
+          }
+
           if (shot < 0) {
             rightText += `(${shot * -1} units basal at ${time}) `;
             rightTextColor = 'red';
+            rightText += notes ? notes : '';
           } else {
             rightText += shot ? shot + ' ' : '';
-            rightText += bg ? bg + ' ' + (bgLabel ? (bgLabel + ' ') : '') : '';
-            rightText += (bg || shot || notes || !(time % 20)) ? time + ' ' : '';
+            rightText += bgLogged ? bgLogged + ' ' + (bgLabel ? (bgLabel + ' ') : '') : '';
+            rightText += (bgLogged || shot || notes || (!(time % 60) && iobToDisplay > 0)) ? time + ' ' : '';
+            rightText += notes ? notes : '';
           }
-          rightText += notes ? notes : '';
+          if (!rightText.length && middlePeak) {
+            rightText = Math.round(iob) + ' I.O.B ';
+          }
+
 
           return {
             bg,
-            iob,
+            iobToDisplay,
             leftText,
             rightText,
-            rightTextColor
+            rightTextColor,
+            time
           }
         })
 
@@ -271,73 +341,39 @@ const About = () => {
         // console.log('minutes data to transform:', dataAllMinutes);
 
         return dataAllMinutes.reduce((acc: any, minuteData: any) => {
-          const {bg, iob, leftText, rightText, rightTextColor} = minuteData;
+          const {bg, iobToDisplay, leftText, rightText, rightTextColor, time} = minuteData;
 
-          if (bg || iob || leftText || rightText) acc.push({
-            maxLeft: 400,
-            maxRight: 800,
-            leftValue: bg,
-            leftColorMain: "darkcyan",
-            leftColorExtra: "brown",
-            leftColorExtraThreshold: 180,
-            leftText,
-            leftTextColor: "white",
-            rightValue: (iob * 50),
-            rightColorMain: "lightskyblue",
-            rightColorExtra: "pink",
-            rightColorExtraThreshold: 300,
-            rightText,
-            rightTextColor,
-            centerBarValue: 10,
-            centerBarColor: "black",
-            backGroundColor: "lightgrey"
-          });
+          if (bg || iobToDisplay || leftText?.length || rightText?.length) {
+            // compression if no text:
+            if (!leftText?.length && !rightText?.length && (time % 10)) return acc;
 
+            acc.push({
+              maxLeft: 400,
+              maxRight: 800,
+              leftValue: bg,
+              leftColorMain: "darkcyan",
+              leftColorExtra: "brown",
+              leftColorExtraThreshold: 180,
+              leftText,
+              leftTextColor: "white",
+              rightValue: (iobToDisplay * 50),
+              rightColorMain: "lightskyblue",
+              rightColorExtra: "pink",
+              rightColorExtraThreshold: 300,
+              rightText,
+              rightTextColor,
+              centerBarValue: 10,
+              centerBarColor: "black",
+              backGroundColor: "lightgrey"
+            });
+          }
           return acc;
         }, []);
+      }
 
+      const getDisplayDateData = (date: string) => {
 
-
-        return [
-          {
-            "maxLeft": 400,
-            "maxRight": 400,
-            "leftValue": 98,
-            "leftColorMain": "green",
-            "leftColorExtra": "maroon",
-            "leftColorExtraThreshold": 180,
-            "leftText": "108",
-            "leftTextColor": "white",
-            "rightValue": 200,
-            "rightColorMain": "lightskyblue",
-            "rightColorExtra": "pink",
-            "rightColorExtraThreshold": 150,
-            "rightText": "3 108 wal pizza",
-            "rightTextColor": "black",
-            "centerBarValue": 20,
-            "centerBarColor": "black",
-            "backGroundColor": "grey"
-          },
-          {
-            "maxLeft": 400,
-            "maxRight": 400,
-            "leftValue": 540,
-            "leftColorMain": "green",
-            "leftColorExtra": "maroon",
-            "leftColorExtraThreshold": 180,
-            "leftText": "108",
-            "leftTextColor": "white",
-            "rightValue": 100,
-            "rightColorMain": "lightblue",
-            "rightColorExtra": "pink",
-            "rightColorExtraThreshold": 150,
-            "rightText": "54 ice cream",
-            "rightTextColor": "black",
-            "centerBarValue": 20,
-            "centerBarColor": "black",
-            "backGroundColor": "grey"
-          }
-        ]
+        return JSON.parse(fs.readFileSync(`${__dirname}/../data/current.json`).toString());
       }
 
       const Home = (props: any) => {
@@ -353,11 +389,11 @@ const About = () => {
 
         useEffect(() => {
           textareaRef.current.setSelectionRange(text.length, text.length);
-          scrollScreen();
+          if (props.scroll) scrollScreen();
         }, []);
 
-        const currentData = JSON.parse(fs.readFileSync(`${__dirname}/../data/current.json`).toString());
-        console.log('currentFile:', currentData);
+        const currentData = getDisplayDateData(props.displayDate);
+
         const minutesData = transformLogDataToMinutesData(currentData);
         const graphData = transformMinutesDataToGraph(minutesData);
 
@@ -444,8 +480,19 @@ const About = () => {
     );
   };
 
+  const getCurrentDateTime = () => {
+    const d = new Date()
+    const date = d.toLocaleDateString().replace(/\//g, '-');
+    const time = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+    console.log('d:', d);
+    // also return time in minutes since 6am?
+    return {date, time};
+  }
+
   export default function App() {
     const [ textState, setTextState ] = useState('');
+    const [displayDate, setDisplayDate] = useState(getCurrentDateTime().date);
+    const [scroll, setScroll] = useState(true);
 
     return (
       // <div>
@@ -453,7 +500,7 @@ const About = () => {
       <Switch>
 
 
-      <Route exact path="/"><Home text={ textState } setText={ setTextState } /></Route>
+      <Route exact path="/"><Home text={ textState } setText={ setTextState } displayDate={ displayDate } setDisplayDate={ setDisplayDate } scroll={ scroll } setScroll={ setScroll }/></Route>
 
       <Route path="/about"><About /></Route>
 
