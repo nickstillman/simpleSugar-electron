@@ -66,7 +66,7 @@ a:hover {
 
 .home {
   margin: 50px;
-display: flex;
+  display: flex;
 }
 
 .basic-centered {
@@ -76,12 +76,27 @@ display: flex;
   margin: 20px 0;
 }
 
-.inputArea {
-  /* display: flex; */
-  /* justify-content: right; */
+.console {
   position: fixed;
   margin-left: 1000px;
   margin-top: 300px;
+}
+
+.gaveBasal {
+}
+
+.inputArea {
+  position: fixed;
+  /* display: flex; */
+  /* justify-content: right; */
+
+  /* USE THESE: */
+  /* position: fixed;
+  margin-left: 1000px;
+  margin-top: 300px; */
+  /* ABOVE */
+
+
   /* height: 100px;
   width: 100px; */
   /* position: fixed; */
@@ -180,11 +195,23 @@ display: flex;
   /* bottom: 6px; */
 }
 
+.graphError {
+  font-size: 36px;
+  margin: 10px;
+  color: black;
+}
+
+.basalMessage {
+  font-size: 36px;
+  margin: 10px;
+  color: black;
+}
+
 .dateTime {
-display: flex;
-font-size: 36px;
-margin: 10px;
-justify-content: center;
+  display: flex;
+  font-size: 36px;
+  margin: 10px;
+  justify-content: center;
 }
 
 

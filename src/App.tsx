@@ -293,8 +293,9 @@ const About = () => {
         // console.log('log data to transform:', data);
 
         const entryData: any = makeDataMaps(data); // build bgMap and iobMap, combine to entryData
+        let gaveBasal: Boolean = false;
 
-        return entryData.map((entry: any) => {
+        return [entryData.map((entry: any) => {
           const {bg, bgLogged, bgLabel, bgDisplay, iob, onsetLag, middlePeak, shot, time, notes} = entry;
           const leftText = bgDisplay ? (bg + ' ' + ((bgLabel && (bg > 50)) ? (bgLabel + ' ') : '')) : null;
           let rightText = '';
@@ -309,6 +310,7 @@ const About = () => {
             rightText += `(${shot * -1} units basal at ${time}) `;
             rightTextColor = 'red';
             rightText += notes ? notes : '';
+            gaveBasal = true;
           } else {
             rightText += shot ? shot + ' ' : '';
             rightText += bgLogged ? bgLogged + ' ' + (bgLabel ? (bgLabel + ' ') : '') : '';
@@ -319,6 +321,8 @@ const About = () => {
             rightText = Math.round(iob) + ' I.O.B ';
           }
 
+          // if (time > data.basalTime) gaveBasal = false;
+          const centerBarColor = !gaveBasal && (time > data.basalTime) ? "yellow" : "black";
 
           return {
             bg,
@@ -326,20 +330,22 @@ const About = () => {
             leftText,
             rightText,
             rightTextColor,
+            centerBarColor,
             time
           }
-        })
+        }), gaveBasal];
 
 
       }
 
       const transformMinutesDataToGraph = (dataAllMinutes: any) => {
         // console.log('minutes data to transform:', dataAllMinutes);
-
+        console.log('transforming');
         return dataAllMinutes.reduce((acc: any, minuteData: any) => {
-          const {bg, iobToDisplay, leftText, rightText, rightTextColor, time} = minuteData;
+          const {bg, iobToDisplay, leftText, rightText, rightTextColor, centerBarColor, time} = minuteData;
 
           if (bg || iobToDisplay || leftText?.length || rightText?.length) {
+            // if (bg || iobToDisplay || leftText?.length || rightText?.length || centerBarColor === 'yellow') {
             // compression if no text:
             if (!leftText?.length && !rightText?.length && (time % 10)) return acc;
 
@@ -359,7 +365,7 @@ const About = () => {
               rightText,
               rightTextColor,
               centerBarValue: 10,
-              centerBarColor: "black",
+              centerBarColor,
               backGroundColor: "lightgrey"
             });
           }
@@ -368,8 +374,14 @@ const About = () => {
       }
 
       const getDisplayDateData = (date: string) => {
-
-        return JSON.parse(fs.readFileSync(`${__dirname}/../data/current.json`).toString());
+        const logPath = 'log' + date;
+        let data;
+        try {
+          data = JSON.parse(fs.readFileSync(`${__dirname}/../data/${logPath}.json`).toString());
+          return data;
+        } catch (err) {
+          return false;
+        }
       }
 
       const createDateTime = (dateTime: any) => {
@@ -380,26 +392,54 @@ const About = () => {
       const Home = (props: any) => {
         const text = props.homeProps.textState;
         const textareaRef: any = useRef();
-        const displayDateTime = createDateTime(props.homeProps.displayDateTime);
+        const displayDateTimeDOM = createDateTime(props.homeProps.displayDateTime);
+        const [currentData, setCurrentData] = useState({gaveBasal: false});
+        const [graphData, setGraphData] = useState([]);
+        const [graphError, setGraphError] = useState('');
+        const [basalTime, setBasalTime] = useState(900);
+        // let graphData: any = [];
 
         const scrollScreen = () => {
+          // console.log('scroll!!!!');
           const bottom: any = document.getElementById('bottom');
-          bottom.scrollIntoView({ behavior: 'smooth' });
+          bottom?.scrollIntoView({ behavior: 'smooth' });
         }
+
+        useEffect(() => {
+          textareaRef.current.setSelectionRange(text.length, text.length);
+        }, []);
 
         useEffect(() => {
           if (props.homeProps.scroll) scrollScreen();
         }, [props.homeProps.scroll]);
 
         useEffect(() => {
-          textareaRef.current.setSelectionRange(text.length, text.length);
+          // textareaRef.current.setSelectionRange(text.length, text.length);
+          const dataLoaded = getDisplayDateData(props.homeProps.displayDateTime.date);
+          if (dataLoaded) {
+            const [minutesDataLoaded, gaveBasal] = transformLogDataToMinutesData(dataLoaded);
+            dataLoaded.gaveBasal = gaveBasal;
+
+            const graphDataLoaded = transformMinutesDataToGraph(minutesDataLoaded);
+            // console.log('graphDataLoad:', graphDataLoaded);
+            setGraphData(graphDataLoaded);
+            setCurrentData(dataLoaded);
+            if (dataLoaded.basalTime) setBasalTime(dataLoaded.basalTime);
+          } else {
+            setGraphError('Error loading entries');
+          }
+          // if (props.homeProps.scroll) scrollScreen();
+        }, [props.homeProps.displayDateTime]);
+
+        useEffect(() => {
           if (props.homeProps.scroll) scrollScreen();
-        }, []);
+        }, [graphData]);
 
-        const currentData = getDisplayDateData(props.displayDate);
 
-        const minutesData = transformLogDataToMinutesData(currentData);
-        const graphData = transformMinutesDataToGraph(minutesData);
+        // const currentData = getDisplayDateData(props.displayDate);
+
+        // const minutesData = transformLogDataToMinutesData(currentData);
+        // const graphData = transformMinutesDataToGraph(minutesData);
 
         const process = (val: string) => {
           // currently is a sample process, TODO: write real process/parse functions
@@ -425,9 +465,12 @@ const About = () => {
         const handleInput = (e: any) => {
           const val: string = e.target.value;
           const char: Number = val.charCodeAt(val.length - 1)
-          // setText(val);
           props.homeProps.setTextState(val);
-          if (char === 10) submit(val.slice(0, -1));
+          // this logic works for now but if text is pasted in with a ending CR and
+          // is one char longer than current text, it will submit
+          // rare occurrence though
+          // how to prevent that? detect actual CR keypress??
+          if (char === 10 && (val.length - props.homeProps.textState.length === 1)) submit(val.trim());
         }
 
         const inputBox: any =  <textarea ref={ textareaRef } autoComplete="off" autoFocus className="textArea" style={ {justifyContent: "right", color: "red"} } value={ text } onChange={ (e) => {
@@ -441,74 +484,101 @@ const About = () => {
 
         if (direction === 'back') {
           // props.homeProps.setDisplayDateTime({...props.homeProps.displayDateTime, onToday: false});
-          props.homeProps.setDisplayDateTime((state: any) => ({...state, onToday: false}));
+          props.homeProps.setDisplayDateTime((state: any) => ({...state, date:'6-7-2021', onToday: false}));
 
           props.homeProps.setScroll(false);
         }
         if (direction === 'now') {
           // props.homeProps.setDisplayDateTime({...props.homeProps.displayDateTime, onToday: true});
-          props.homeProps.setDisplayDateTime((state: any) => ({...state, onToday: true}));
+          props.homeProps.setDisplayDateTime((state: any) => ({...state, date:'6-8-2021', onToday: true}));
 
           props.homeProps.setScroll(true);
         }
       }
 
-      return (
-        <div className="home">
+      let gaveBasalMessage = null;
+console.log('basalTime:', basalTime);
+      if (currentData.gaveBasal) {
+        gaveBasalMessage = <div className="basalMessage">Basal is DONE!!!</div>
+      } else if (!currentData.gaveBasal && props.homeProps.displayDateTime.onToday && props.homeProps.displayDateTime.time) { // need a minutes elapsed time to compare for past-basalTime check
+        gaveBasalMessage = <div className="basalMessage" style={ {color: "red"} }>
+        Basal NOT YET GIVEN!!!
 
-        <div className="graphArea">
-        <Graph data={ graphData }/>
-        </div>
-
-        {/* <div>
-          <Link className="basic-centered" to="/about">
-          <button type="button">
-          <span role="img" aria-label="books">
-          📚
-          </span>
-          Go to About Page
-          </button>
-          </Link>
-        </div> */}
-
-        <div className="inputArea">
-        {/* give inputArea a border and make it draggable? */}
-
-
-        <div className="dateButtons">
+        <div>
         <button className="dateButton" onClick={ () => {
           navigate('back');
         }
       } >
-      Back
+      GIVE BASAL?
       </button>
+      </div>
 
+      </div>
+    }
+
+
+    return (
+      <div className="home">
+
+      <div className="graphArea">
+      { graphError ? <div className="graphError"> { graphError } </div> : <Graph data={ graphData }/> }
+      </div>
+
+      {/* <div>
+        <Link className="basic-centered" to="/about">
+        <button type="button">
+        <span role="img" aria-label="books">
+        📚
+        </span>
+        Go to About Page
+        </button>
+        </Link>
+      </div> */}
+
+      <div className="console">
+      {/* give console a border and make it draggable? */}
+
+      <div className="gaveBasal">
+      { gaveBasalMessage }
+      </div>
+
+      <div className="inputArea">
+      {/* give inputArea a border and make it draggable? NO, USE CONSOLE! */}
+
+      <div className="dateButtons">
       <button className="dateButton" onClick={ () => {
-        navigate('forward');
+        navigate('back');
       }
     } >
-    Forward
+    Back
     </button>
 
     <button className="dateButton" onClick={ () => {
-      navigate('now');
+      navigate('forward');
     }
   } >
-  Now
+  Forward
   </button>
-  </div>
 
-  <div className="dateDisplay">
-  { displayDateTime }
-  </div>
-  <div>
-  { inputBox }
-  </div>
-
-  <div className="inputButtons">
-  <button className="inputButton" onClick={ () => {
-    submit(text);
+  <button className="dateButton" onClick={ () => {
+    navigate('now');
   }
+} >
+Now
+</button>
+</div>
+
+<div className="dateDisplay">
+{ displayDateTimeDOM }
+</div>
+<div>
+{ inputBox }
+</div>
+
+<div className="inputButtons">
+<button className="inputButton" onClick={ () => {
+  submit(text);
+}
 } >
 Submit
 </button>
@@ -519,6 +589,8 @@ Submit
 } >
 Clear
 </button>
+</div>
+
 </div>
 
 </div>
@@ -542,14 +614,14 @@ export default function App() {
 
   // update date/time every x seconds
   useEffect(() => {
-    if (!displayDateTime.onToday) return
     const timer1 = setInterval(() => {
-      console.log('updating time');
+      if (!displayDateTime.onToday) return;
+
       const newDateTime = getCurrentDateTime();
       setDisplayDateTime((state: any) => ({...state, date: newDateTime.date, time: newDateTime.time}));
     }, 10000);
     return () => clearInterval(timer1);
-  }, []);
+  }, [displayDateTime.onToday]);
 
 
   const propsObj = {
@@ -560,6 +632,9 @@ export default function App() {
     scroll,
     setScroll
   }
+
+  console.log('app rendered!!');
+  console.log('displayDateTime:', displayDateTime);
 
   return (
     // <div>
