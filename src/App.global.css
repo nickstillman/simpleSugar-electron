@@ -101,6 +101,16 @@ display: flex;
   margin: 20px;
 }
 
+.dateButtons {
+  display: flex;
+  justify-content: center;
+}
+
+.dateButton {
+  display: inline-flex;
+  margin: 5px;
+}
+
 .textArea {
   height: 100px;
   width: 300px;
@@ -170,6 +180,12 @@ display: flex;
   /* bottom: 6px; */
 }
 
+.dateTime {
+display: flex;
+font-size: 36px;
+margin: 10px;
+justify-content: center;
+}
 
 
 

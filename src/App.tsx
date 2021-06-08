@@ -158,7 +158,6 @@ const About = () => {
 
         for (let i = 0; i <= 1440; i +=5) {
           if (data[i]?.bg) {
-            console.log(data[i].bg);
             // check for valid blood sugar values? ie. bg > 20 and bg < 600
             nextBgVals[prevBgIndex] = data[i];
             bgVals[i] = data[i].bg;
@@ -166,8 +165,6 @@ const About = () => {
           }
         }
         currentBgSlope = (nextBgVals[-5].bg - bgVals[-5]) / ((nextBgVals[-5].time + 5) / 5);
-
-        console.log('nextBgVals:', nextBgVals);
 
         const slopeFunctionList = [];
 
@@ -202,7 +199,6 @@ const About = () => {
 
           // calc BGs
           if (bgVals[i]) {
-            console.log('i:', i)
             currentBg = bgVals[i];
             if (!nextBgVals[i]) {
               noMoreBg = true;
@@ -316,7 +312,7 @@ const About = () => {
           } else {
             rightText += shot ? shot + ' ' : '';
             rightText += bgLogged ? bgLogged + ' ' + (bgLabel ? (bgLabel + ' ') : '') : '';
-            rightText += (bgLogged || shot || notes || (!(time % 60) && iobToDisplay > 0)) ? time + ' ' : '';
+            rightText += (bgLogged || shot || notes || (!(time % 60) && ((iobToDisplay > 0) || (bg >= 20)))) ? time + ' ' : '';
             rightText += notes ? notes : '';
           }
           if (!rightText.length && middlePeak) {
@@ -376,11 +372,15 @@ const About = () => {
         return JSON.parse(fs.readFileSync(`${__dirname}/../data/current.json`).toString());
       }
 
+      const createDateTime = (dateTime: any) => {
+        return <span className="dateTime" style={ {color: dateTime.onToday ? "red" : "black"} }>{ dateTime.date }{ dateTime.onToday ? `, ${dateTime.time}` : '' }</span>
+      }
+
+
       const Home = (props: any) => {
-        // const [ text, setText ] = useState(props.text);
-        const text = props.text;
-        // const [ currentInput, setCurrentInput ] = useState('');
+        const text = props.homeProps.textState;
         const textareaRef: any = useRef();
+        const displayDateTime = createDateTime(props.homeProps.displayDateTime);
 
         const scrollScreen = () => {
           const bottom: any = document.getElementById('bottom');
@@ -388,8 +388,12 @@ const About = () => {
         }
 
         useEffect(() => {
+          if (props.homeProps.scroll) scrollScreen();
+        }, [props.homeProps.scroll]);
+
+        useEffect(() => {
           textareaRef.current.setSelectionRange(text.length, text.length);
-          if (props.scroll) scrollScreen();
+          if (props.homeProps.scroll) scrollScreen();
         }, []);
 
         const currentData = getDisplayDateData(props.displayDate);
@@ -398,6 +402,7 @@ const About = () => {
         const graphData = transformMinutesDataToGraph(minutesData);
 
         const process = (val: string) => {
+          // currently is a sample process, TODO: write real process/parse functions
           if (val === 'reset') {
             fs.writeFileSync(`${__dirname}/../data/current.json`, '{}');
           } else {
@@ -407,16 +412,13 @@ const About = () => {
         }
 
         const submit = (val: string) => {
-          if (val.charCodeAt(val.length - 1) === 10) val = val.slice(0, -1);
-          // setCurrentInput(val);
-          // setText('');
-          props.setText('');
+          props.homeProps.setTextState('');
           textareaRef.current.focus();
           if (val.length) process(val);
         }
 
         const clearText = () => {
-          props.setText('');
+          props.homeProps.setTextState('');
           textareaRef.current.focus();
         }
 
@@ -424,16 +426,32 @@ const About = () => {
           const val: string = e.target.value;
           const char: Number = val.charCodeAt(val.length - 1)
           // setText(val);
-          props.setText(val);
-          if (char === 10) submit(val);
+          props.homeProps.setTextState(val);
+          if (char === 10) submit(val.slice(0, -1));
         }
 
-        const inputBox: any =  <textarea ref={ textareaRef } autoComplete="off" autoFocus className="textArea" style={{justifyContent: 'right', color: 'red'}} value={ text } onChange={ (e) => {
+        const inputBox: any =  <textarea ref={ textareaRef } autoComplete="off" autoFocus className="textArea" style={ {justifyContent: "right", color: "red"} } value={ text } onChange={ (e) => {
           handleInput(e);
         }
       } />
 
+      const navigate = (direction: string) => {
+        console.log('direction:', direction);
+        textareaRef.current.focus();
 
+        if (direction === 'back') {
+          // props.homeProps.setDisplayDateTime({...props.homeProps.displayDateTime, onToday: false});
+          props.homeProps.setDisplayDateTime((state: any) => ({...state, onToday: false}));
+
+          props.homeProps.setScroll(false);
+        }
+        if (direction === 'now') {
+          // props.homeProps.setDisplayDateTime({...props.homeProps.displayDateTime, onToday: true});
+          props.homeProps.setDisplayDateTime((state: any) => ({...state, onToday: true}));
+
+          props.homeProps.setScroll(true);
+        }
+      }
 
       return (
         <div className="home">
@@ -454,59 +472,110 @@ const About = () => {
         </div> */}
 
         <div className="inputArea">
-        <div>
-        { inputBox }
-        </div>
+        {/* give inputArea a border and make it draggable? */}
 
-        <div className="inputButtons">
-        <button className="inputButton" onClick={ () => {
-          submit(text);
+
+        <div className="dateButtons">
+        <button className="dateButton" onClick={ () => {
+          navigate('back');
         }
       } >
-      Submit
+      Back
       </button>
 
-      <button className="inputButton" onClick={ () => {
-        clearText();
+      <button className="dateButton" onClick={ () => {
+        navigate('forward');
       }
     } >
-    Clear
+    Forward
     </button>
-    </div>
 
-    </div>
+    <button className="dateButton" onClick={ () => {
+      navigate('now');
+    }
+  } >
+  Now
+  </button>
+  </div>
 
-    </div>
-    );
-  };
+  <div className="dateDisplay">
+  { displayDateTime }
+  </div>
+  <div>
+  { inputBox }
+  </div>
 
-  const getCurrentDateTime = () => {
-    const d = new Date()
-    const date = d.toLocaleDateString().replace(/\//g, '-');
-    const time = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-    console.log('d:', d);
-    // also return time in minutes since 6am?
-    return {date, time};
+  <div className="inputButtons">
+  <button className="inputButton" onClick={ () => {
+    submit(text);
+  }
+} >
+Submit
+</button>
+
+<button className="inputButton" onClick={ () => {
+  clearText();
+}
+} >
+Clear
+</button>
+</div>
+
+</div>
+
+</div>
+);
+};
+
+const getCurrentDateTime = () => {
+  const d = new Date()
+  const date = d.toLocaleDateString().replace(/\//g, '-');
+  const time = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+  // also return time in minutes since 6am?
+  return {date, time};
+}
+
+export default function App() {
+  const [textState, setTextState] = useState('');
+  const [displayDateTime, setDisplayDateTime] = useState({...getCurrentDateTime(), onToday: true});
+  const [scroll, setScroll] = useState(true);
+
+  // update date/time every x seconds
+  useEffect(() => {
+    if (!displayDateTime.onToday) return
+    const timer1 = setInterval(() => {
+      console.log('updating time');
+      const newDateTime = getCurrentDateTime();
+      setDisplayDateTime((state: any) => ({...state, date: newDateTime.date, time: newDateTime.time}));
+    }, 10000);
+    return () => clearInterval(timer1);
+  }, []);
+
+
+  const propsObj = {
+    textState,
+    setTextState,
+    displayDateTime,
+    setDisplayDateTime,
+    scroll,
+    setScroll
   }
 
-  export default function App() {
-    const [ textState, setTextState ] = useState('');
-    const [displayDate, setDisplayDate] = useState(getCurrentDateTime().date);
-    const [scroll, setScroll] = useState(true);
-
-    return (
-      // <div>
-      <Router>
-      <Switch>
+  return (
+    // <div>
+    <Router>
+    <Switch>
 
 
-      <Route exact path="/"><Home text={ textState } setText={ setTextState } displayDate={ displayDate } setDisplayDate={ setDisplayDate } scroll={ scroll } setScroll={ setScroll }/></Route>
+    <Route exact path="/"><Home homeProps={ propsObj }/></Route>
 
-      <Route path="/about"><About /></Route>
+    {/* <Route exact path="/"><Home text={ textState } setText={ setTextState } displayDate={ displayDate } setDisplayDate={ setDisplayDate } scroll={ scroll } setScroll={ setScroll }/></Route> */}
 
-      {/* <Route path="/home" component={Home} /> */}
-      </Switch>
-      </Router>
-      // </div>
-      );
-    }
+    <Route path="/about"><About /></Route>
+
+    {/* <Route path="/home" component={Home} /> */}
+    </Switch>
+    </Router>
+    // </div>
+    );
+  }
