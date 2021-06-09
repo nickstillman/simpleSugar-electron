@@ -401,7 +401,7 @@ const About = () => {
         const {index} = logIndex;
 
         let currentLogIndex = index.indexOf('log' + current);
-console.log('currentLogIndex:', currentLogIndex, index);
+        console.log('currentLogIndex:', currentLogIndex, index);
 
         if (currentLogIndex === -1) {
           if (offset > -1) return current;
@@ -432,7 +432,7 @@ console.log('currentLogIndex:', currentLogIndex, index);
       }
 
       // update logIndex if current day doesn't exist
-      const updateLogIndex = (currentLogDate: string) => {
+      const updateLogIndex = (currentLogDate: string, keyToUpdate: string) => {
 
         const logIndexPath = 'logIndex';
         let logIndex: any;
@@ -446,7 +446,17 @@ console.log('currentLogIndex:', currentLogIndex, index);
             return false; // error reading/writing to logIndex file
           }
         }
-        // also contains key lastOpened for last viewed day?
+        // also contains key lastOpened for last viewed day
+        if (keyToUpdate === 'lastOpened') {
+          const objToWrite = JSON.stringify({...logIndex, lastOpened: currentLogDate});
+          try {
+            fs.writeFileSync(`${__dirname}/../data/${logIndexPath}.json`, objToWrite, {flag: 'w'});
+          } catch (err) {
+            return false;
+          }
+          return true;
+        }
+
         const {index} = logIndex;
 
         if (index.indexOf(currentLogDate) === -1) {
@@ -532,6 +542,9 @@ console.log('currentLogIndex:', currentLogIndex, index);
             setGraphData(graphDataLoaded);
             setCurrentData(dataLoaded);
             if (dataLoaded.basalTime) setBasalTime(dataLoaded.basalTime);
+
+            // set lastOpened in logIndex
+            updateLogIndex(props.homeProps.displayDateTime.date, 'lastOpened');
           } else {
             setGraphError('Error loading entries');
           }
@@ -555,7 +568,7 @@ console.log('currentLogIndex:', currentLogIndex, index);
           //   const objToWrite = JSON.stringify({...currentData, [val]: val});
           //   fs.writeFileSync(`${__dirname}/../data/current.json`, objToWrite);
           // }
-          const res = updateLogIndex('log' + props.homeProps.displayDateTime.date);
+          const res = updateLogIndex('log' + props.homeProps.displayDateTime.date, 'index');
           console.log('res:', res, val);
 
         }
@@ -599,7 +612,7 @@ console.log('currentLogIndex:', currentLogIndex, index);
           console.log('currentDate, targetDate:', currentDate, targetDate);
 
           const onToday = isTargetToday(targetDate, getCurrentDateTime().date);
-console.log('ontoday:', onToday);
+          console.log('ontoday:', onToday);
 
           props.homeProps.setDisplayDateTime((state: any) => ({...state, date: targetDate, onToday}));
 
@@ -618,12 +631,16 @@ console.log('ontoday:', onToday);
       // basal warning/success message logic
 
       let gaveBasalMessage = null;
+
+      const onToday = isTargetToday(props.homeProps.displayDateTime.date, getCurrentDateTime().date);
+
       // console.log('basalTime:', basalTime);
       if (currentData.gaveBasal) {
-        gaveBasalMessage = <div className="basalMessage">Basal is DONE!!!</div>
+        const isWas = onToday ? 'is DONE!!!' : 'was recorded on this date.';
+        gaveBasalMessage = <div className="basalMessage">Basal { isWas }</div>
       } else if (!currentData.gaveBasal && props.homeProps.displayDateTime.onToday && props.homeProps.displayDateTime.time) { // need a minutes elapsed time to compare for past-basalTime check
         gaveBasalMessage = <div className="basalMessage" style={ {color: "red"} }>
-        Basal NOT YET GIVEN!!!
+        Basal NOT YET GIVEN!?!?!?
 
         <div>
         <button className="dateButton" onClick={ () => {
@@ -634,6 +651,10 @@ console.log('ontoday:', onToday);
       </button>
       </div>
 
+      </div>
+    } else if (!currentData.gaveBasal && !props.homeProps.displayDateTime.onToday) {
+      gaveBasalMessage = <div className="basalMessage" style={ {color: "black"} }>
+      No basal record on this date!
       </div>
     }
 
