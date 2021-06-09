@@ -293,7 +293,7 @@ const About = () => {
         // console.log('log data to transform:', data);
 
         const entryData: any = makeDataMaps(data); // build bgMap and iobMap, combine to entryData
-        let gaveBasal: Boolean = false;
+        let gaveBasal = 0;
 
         return [entryData.map((entry: any) => {
           const {bg, bgLogged, bgLabel, bgDisplay, iob, onsetLag, middlePeak, shot, time, notes} = entry;
@@ -310,7 +310,7 @@ const About = () => {
             rightText += `(${shot * -1} units basal at ${time}) `;
             rightTextColor = 'red';
             rightText += notes ? notes : '';
-            gaveBasal = true;
+            gaveBasal += (shot * -1);
           } else {
             rightText += shot ? shot + ' ' : '';
             rightText += bgLogged ? bgLogged + ' ' + (bgLabel ? (bgLabel + ' ') : '') : '';
@@ -512,7 +512,7 @@ const About = () => {
         const text = props.homeProps.textState;
         const textareaRef: any = useRef();
         const displayDateTimeDOM = createDateTime(props.homeProps.displayDateTime);
-        const [currentData, setCurrentData] = useState({gaveBasal: false});
+        const [currentData, setCurrentData] = useState({gaveBasal: 0});
         const [graphData, setGraphData] = useState([]);
         const [graphError, setGraphError] = useState('');
         const [basalTime, setBasalTime] = useState(900);
@@ -638,8 +638,8 @@ const About = () => {
 
       // console.log('basalTime:', basalTime);
       if (currentData.gaveBasal) {
-        const isWas = onToday ? 'is DONE!!!' : 'was recorded on this date.';
-        gaveBasalMessage = <div className="basalMessage">Basal { isWas }</div>
+        const isWas = onToday ? ` Basal is DONE!!! (${currentData.gaveBasal} units)` : '';
+        gaveBasalMessage = <div className="basalMessage">{ isWas }</div>
       } else if (!currentData.gaveBasal && props.homeProps.displayDateTime.onToday && props.homeProps.displayDateTime.time) { // need a minutes elapsed time to compare for past-basalTime check
         gaveBasalMessage = <div className="basalMessage" style={ {color: "red"} }>
         Basal NOT YET GIVEN!?!?!?
@@ -656,7 +656,7 @@ const About = () => {
       </div>
     } else if (!currentData.gaveBasal && !props.homeProps.displayDateTime.onToday) {
       gaveBasalMessage = <div className="basalMessage" style={ {color: "black"} }>
-      No basal record on this date!
+      No basal recorded on this date!
       </div>
     }
 
