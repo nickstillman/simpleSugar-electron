@@ -76,7 +76,7 @@ const About = () => {
   const Graph = (props: any) => {
     // console.log('graph data: ', props.data);
     const graphBars = props.data.map((entry: any, i: number) => {
-
+      // if (entry.timeBar) console.log(entry, i);
       const leftBarTotal = entry.leftValue ? entry.leftValue <= entry.maxLeft ? entry.leftValue : entry.maxLeft : 0;
       const leftSpace = leftBarTotal <= entry.maxLeft ? entry.maxLeft - leftBarTotal : 0;
 
@@ -111,13 +111,18 @@ const About = () => {
 
       const rightSpaceBar = <span className="spaceBar" key={ `rightSpaceBar${i}` }>{ rightText }</span>;
 
+      const timeBar = entry.timeBar ? <span className="timeBar" key={ `timeBar${i}` }>{ entry.timeBarText }</span>: null;
+
       return (
+        <div className="graphBarWrapper" key={ `graphBarWrapper${i}` }>
         <div className="graphBar" key={ `graphBar${i}` }>
         { spaceBar }
         { leftBar }
         { centerBar }
         { rightBar }
         { rightSpaceBar }
+        </div>
+        { timeBar }
         </div>
         )
       });
@@ -366,7 +371,10 @@ const About = () => {
               rightTextColor,
               centerBarValue: 10,
               centerBarColor,
-              backGroundColor: "lightgrey"
+              backGroundColor: "lightgrey",
+              time,
+              timeBar: false,
+              timeBarText: ''
             });
           }
           return acc;
@@ -516,7 +524,8 @@ const About = () => {
         const [graphData, setGraphData] = useState([]);
         const [graphError, setGraphError] = useState('');
         const [basalTime, setBasalTime] = useState(900);
-        // let graphData: any = [];
+
+        const [sampleTime, setSampleTime] = useState(504);
 
         const scrollScreen = () => {
           // console.log('scroll!!!!');
@@ -524,9 +533,48 @@ const About = () => {
           bottom?.scrollIntoView({ behavior: 'smooth' });
         }
 
+        const insertTimeBar = (data: any) => {
+          // only insert timeBar if it's today
+          // double check, redundant, for present calls to insertTimeBar
+          // from show time bar useEffect and dataLoaded useEffect
+          if (props.homeProps.displayDateTime.onToday) {
+
+            // const currentTime = props.homeProps.displayDateTime.time;
+            const currentTime = sampleTime;
+            setSampleTime((state) => state + 20);
+            console.log('sampletime:', sampleTime);
+
+            const graphWithTimeBar = [...data];
+            // let removeOldTimeBarIndex;
+
+            for (let i = 0; i < data.length; i++) {
+              if (data[i].timeBar) {
+                graphWithTimeBar[i].timeBar = false;
+                // clear timeBar text?
+              }
+              // if (data[i].time === currentTime) {
+              const timeDiff = currentTime - data[i].time;
+              if (timeDiff >= 0 && timeDiff < 5) {
+                graphWithTimeBar[i].timeBar = true;
+                graphWithTimeBar[i].timeBarText = `Current time is: ${currentTime}`;//JSON.stringify(currentTime);
+                return graphWithTimeBar;
+              }
+            }
+            return graphWithTimeBar;
+          }
+          return data;
+        }
+
         useEffect(() => {
           textareaRef.current.setSelectionRange(text.length, text.length);
         }, []);
+
+        // insert/show time bar in graph if it's today
+        useEffect(() => {
+          if (props.homeProps.displayDateTime.onToday) {
+            setGraphData(insertTimeBar(graphData));
+          }
+        }, [props.homeProps.displayDateTime.time]);
 
         useEffect(() => {
           if (props.homeProps.scroll) scrollScreen();
@@ -539,7 +587,11 @@ const About = () => {
             const [minutesDataLoaded, gaveBasal] = transformLogDataToMinutesData(dataLoaded);
             dataLoaded.gaveBasal = gaveBasal;
 
-            const graphDataLoaded = transformMinutesDataToGraph(minutesDataLoaded);
+            let graphDataLoaded = transformMinutesDataToGraph(minutesDataLoaded);
+            if (props.homeProps.displayDateTime.onToday) {
+              graphDataLoaded = insertTimeBar(graphDataLoaded);
+            }
+
             setGraphData(graphDataLoaded);
             setGraphError('');
             setCurrentData(dataLoaded);
@@ -547,14 +599,17 @@ const About = () => {
 
             // set lastOpened in logIndex
             updateLogIndex(props.homeProps.displayDateTime.date, 'lastOpened');
+
           } else {
             setGraphError('Error loading entries');
           }
         }, [props.homeProps.displayDateTime.date]);
 
+        // scroll with graphData update?? NO, use currentData
+        // so not affected by timeBar update to graphData
         useEffect(() => {
           if (props.homeProps.scroll) scrollScreen();
-        }, [graphData]);
+        }, [currentData]);
 
 
         // const currentData = getDisplayDateData(props.displayDate);
@@ -634,7 +689,9 @@ const About = () => {
 
       let gaveBasalMessage = null;
 
-      const onToday = isTargetToday(props.homeProps.displayDateTime.date, getCurrentDateTime().date);
+      // const onToday = isTargetToday(props.homeProps.displayDateTime.date, getCurrentDateTime().date);
+
+      const onToday = props.homeProps.displayDateTime.onToday;
 
       // console.log('basalTime:', basalTime);
       if (currentData.gaveBasal) {

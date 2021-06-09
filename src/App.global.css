@@ -187,6 +187,23 @@ a:hover {
 
 }
 
+.timeBar {
+  display: flex; /* inline-block;
+  /* background-color: lightgray; */
+  background-color: red;
+  height: 20px;
+  width: 800px;
+  margin-top: 3px;
+  font-size: 15px;
+  color: yellow;
+  align-items: center;
+  /* position: relative; */
+  /* bottom: 7px; */
+  /* bottom: 14px; */
+  /* text-align: right; */
+  justify-content: center;
+}
+
 .displayText {
   display: inline;
   white-space: nowrap;
