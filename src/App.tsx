@@ -534,12 +534,14 @@ const About = () => {
 
         useEffect(() => {
           const dataLoaded = getDisplayDateData(props.homeProps.displayDateTime.date);
+          console.log('dataLoaded:', dataLoaded);
           if (dataLoaded) {
             const [minutesDataLoaded, gaveBasal] = transformLogDataToMinutesData(dataLoaded);
             dataLoaded.gaveBasal = gaveBasal;
 
             const graphDataLoaded = transformMinutesDataToGraph(minutesDataLoaded);
             setGraphData(graphDataLoaded);
+            setGraphError('');
             setCurrentData(dataLoaded);
             if (dataLoaded.basalTime) setBasalTime(dataLoaded.basalTime);
 
@@ -548,7 +550,7 @@ const About = () => {
           } else {
             setGraphError('Error loading entries');
           }
-        }, [props.homeProps.displayDateTime]);
+        }, [props.homeProps.displayDateTime.date]);
 
         useEffect(() => {
           if (props.homeProps.scroll) scrollScreen();
@@ -621,8 +623,8 @@ const About = () => {
 
         if (direction === 'now') {
           props.homeProps.setDisplayDateTime((state: any) => ({...state, ...getCurrentDateTime(), onToday: true}));
-
           props.homeProps.setScroll(true);
+          scrollScreen();
         }
       }
 
