@@ -340,7 +340,7 @@ const About = () => {
 
       const transformMinutesDataToGraph = (dataAllMinutes: any) => {
         // console.log('minutes data to transform:', dataAllMinutes);
-        console.log('transforming');
+        // console.log('transforming');
         return dataAllMinutes.reduce((acc: any, minuteData: any) => {
           const {bg, iobToDisplay, leftText, rightText, rightTextColor, centerBarColor, time} = minuteData;
 
@@ -373,6 +373,103 @@ const About = () => {
         }, []);
       }
 
+      // log/database functions
+
+      const parseDate = (date: string) => {
+        let toSplit = date;
+        if (toSplit.slice(0,3) === 'log') toSplit = toSplit.slice(3)
+        const split = toSplit.split('-');
+        return split.map(el => parseInt(el));
+      }
+
+      // find target for date navigation
+
+      const getTargetDateFromLogIndex = (current: string, offset: number) => {
+        const logIndexPath = 'logIndex';
+        let logIndex: any;
+
+        if (!fs.existsSync(`${__dirname}/../data/${logIndexPath}.json`)) {
+          return false;
+        } else {
+          try {
+            logIndex = JSON.parse(fs.readFileSync(`${__dirname}/../data/${logIndexPath}.json`).toString())
+          } catch (err) {
+            return false; // error reading/writing to logIndex file
+          }
+        }
+        // also contains key lastOpened for last viewed day?
+        const {index} = logIndex;
+
+        let currentLogIndex = index.indexOf('log' + current);
+console.log('currentLogIndex:', currentLogIndex, index);
+
+        if (currentLogIndex === -1) {
+          if (offset > -1) return current;
+          currentLogIndex = index.length;
+        }
+
+        let targetIndex = currentLogIndex + offset;
+        if (targetIndex < 0) targetIndex = 0;
+        if (targetIndex >= index.length) targetIndex = index.length - 1;
+
+        return index[targetIndex].slice(3);
+      }
+
+      // sort log index
+
+      const sortLogIndex = (logIndexArray: string[]) => {
+
+        const compareDates = (a: string, b: string) => {
+          const [monthA, dayA, yearA] = parseDate(a);
+          const [monthB, dayB, yearB] = parseDate(b);
+
+          const yearDiff = yearA - yearB;
+          const monthDiff = monthA - monthB;
+          const dayDiff = dayA - dayB;
+          return yearDiff || monthDiff || dayDiff;
+        }
+        logIndexArray.sort(compareDates);
+      }
+
+      // update logIndex if current day doesn't exist
+      const updateLogIndex = (currentLogDate: string) => {
+
+        const logIndexPath = 'logIndex';
+        let logIndex: any;
+
+        if (!fs.existsSync(`${__dirname}/../data/${logIndexPath}.json`)) {
+          logIndex = {index: [], lastOpened: currentLogDate}
+        } else {
+          try {
+            logIndex = JSON.parse(fs.readFileSync(`${__dirname}/../data/${logIndexPath}.json`).toString())
+          } catch (err) {
+            return false; // error reading/writing to logIndex file
+          }
+        }
+        // also contains key lastOpened for last viewed day?
+        const {index} = logIndex;
+
+        if (index.indexOf(currentLogDate) === -1) {
+          index.push(currentLogDate);
+          sortLogIndex(index);
+          const objToWrite = JSON.stringify({index, lastOpened: logIndex.lastOpened});
+          try {
+            fs.writeFileSync(`${__dirname}/../data/${logIndexPath}.json`, objToWrite, {flag: 'w'});
+          } catch (err) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+
+
+
+
+
+
+      // date/time functions
+
       const getDisplayDateData = (date: string) => {
         const logPath = 'log' + date;
         let data;
@@ -388,6 +485,18 @@ const About = () => {
         return <span className="dateTime" style={ {color: dateTime.onToday ? "red" : "black"} }>{ dateTime.date }{ dateTime.onToday ? `, ${dateTime.time}` : '' }</span>
       }
 
+      const getCurrentDateTime = () => {
+        const d = new Date()
+        const date = d.toLocaleDateString().replace(/\//g, '-');
+        const time = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+        // also return time in minutes since 6am?
+        return {date, time};
+      }
+
+      const isTargetToday = (target: string, today: string) => {
+        const toCompare = target.slice(0,3) === 'log' ? target.slice(3) : target;
+        return toCompare === today;
+      }
 
       const Home = (props: any) => {
         const text = props.homeProps.textState;
@@ -414,21 +523,18 @@ const About = () => {
         }, [props.homeProps.scroll]);
 
         useEffect(() => {
-          // textareaRef.current.setSelectionRange(text.length, text.length);
           const dataLoaded = getDisplayDateData(props.homeProps.displayDateTime.date);
           if (dataLoaded) {
             const [minutesDataLoaded, gaveBasal] = transformLogDataToMinutesData(dataLoaded);
             dataLoaded.gaveBasal = gaveBasal;
 
             const graphDataLoaded = transformMinutesDataToGraph(minutesDataLoaded);
-            // console.log('graphDataLoad:', graphDataLoaded);
             setGraphData(graphDataLoaded);
             setCurrentData(dataLoaded);
             if (dataLoaded.basalTime) setBasalTime(dataLoaded.basalTime);
           } else {
             setGraphError('Error loading entries');
           }
-          // if (props.homeProps.scroll) scrollScreen();
         }, [props.homeProps.displayDateTime]);
 
         useEffect(() => {
@@ -443,12 +549,15 @@ const About = () => {
 
         const process = (val: string) => {
           // currently is a sample process, TODO: write real process/parse functions
-          if (val === 'reset') {
-            fs.writeFileSync(`${__dirname}/../data/current.json`, '{}');
-          } else {
-            const objToWrite = JSON.stringify({...currentData, [val]: val});
-            fs.writeFileSync(`${__dirname}/../data/current.json`, objToWrite);
-          }
+          // if (val === 'reset') {
+          //   fs.writeFileSync(`${__dirname}/../data/current.json`, '{}');
+          // } else {
+          //   const objToWrite = JSON.stringify({...currentData, [val]: val});
+          //   fs.writeFileSync(`${__dirname}/../data/current.json`, objToWrite);
+          // }
+          const res = updateLogIndex('log' + props.homeProps.displayDateTime.date);
+          console.log('res:', res, val);
+
         }
 
         const submit = (val: string) => {
@@ -482,22 +591,34 @@ const About = () => {
         console.log('direction:', direction);
         textareaRef.current.focus();
 
-        if (direction === 'back') {
-          // props.homeProps.setDisplayDateTime({...props.homeProps.displayDateTime, onToday: false});
-          props.homeProps.setDisplayDateTime((state: any) => ({...state, date:'6-7-2021', onToday: false}));
+        const currentDate = props.homeProps.displayDateTime.date;
 
-          props.homeProps.setScroll(false);
+        if (direction === 'back' || direction === 'forward') {
+          const targetDate = getTargetDateFromLogIndex(currentDate, direction === 'back' ? -1 : 1);
+
+          console.log('currentDate, targetDate:', currentDate, targetDate);
+
+          const onToday = isTargetToday(targetDate, getCurrentDateTime().date);
+console.log('ontoday:', onToday);
+
+          props.homeProps.setDisplayDateTime((state: any) => ({...state, date: targetDate, onToday}));
+
+          props.homeProps.setScroll(onToday);
         }
+
         if (direction === 'now') {
-          // props.homeProps.setDisplayDateTime({...props.homeProps.displayDateTime, onToday: true});
-          props.homeProps.setDisplayDateTime((state: any) => ({...state, date:'6-8-2021', onToday: true}));
+          props.homeProps.setDisplayDateTime((state: any) => ({...state, ...getCurrentDateTime(), onToday: true}));
 
           props.homeProps.setScroll(true);
         }
       }
 
+
+
+      // basal warning/success message logic
+
       let gaveBasalMessage = null;
-console.log('basalTime:', basalTime);
+      // console.log('basalTime:', basalTime);
       if (currentData.gaveBasal) {
         gaveBasalMessage = <div className="basalMessage">Basal is DONE!!!</div>
       } else if (!currentData.gaveBasal && props.homeProps.displayDateTime.onToday && props.homeProps.displayDateTime.time) { // need a minutes elapsed time to compare for past-basalTime check
@@ -599,13 +720,7 @@ Clear
 );
 };
 
-const getCurrentDateTime = () => {
-  const d = new Date()
-  const date = d.toLocaleDateString().replace(/\//g, '-');
-  const time = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-  // also return time in minutes since 6am?
-  return {date, time};
-}
+
 
 export default function App() {
   const [textState, setTextState] = useState('');
@@ -633,8 +748,8 @@ export default function App() {
     setScroll
   }
 
-  console.log('app rendered!!');
-  console.log('displayDateTime:', displayDateTime);
+  // console.log('app rendered!!');
+  // console.log('displayDateTime:', displayDateTime);
 
   return (
     // <div>
