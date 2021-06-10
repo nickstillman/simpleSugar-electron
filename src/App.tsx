@@ -6,6 +6,58 @@ import fs from 'fs';
 
 const { useState, useEffect, useRef } = React;
 
+
+// date/time functions
+
+const getDisplayDateData = (date: string) => {
+  const logPath = 'log' + date;
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(`${__dirname}/../data/${logPath}.json`).toString());
+    return data;
+  } catch (err) {
+    return false;
+  }
+}
+
+const createDateTime = (dateTime: any) => {
+  return <span className="dateTime" style={ {color: dateTime.onToday ? "red" : "black"} }>{ dateTime.date }{ dateTime.onToday ? `, ${dateTime.time}` : '' }</span>
+}
+
+const getCurrentDateTime = () => {
+  const d = new Date()
+  const date = d.toLocaleDateString().replace(/\//g, '-');
+  const time = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+  // also return time in minutes since 6am?
+  return {date, time};
+}
+
+const isTargetToday = (target: string, today: string) => {
+  const toCompare = target.slice(0,3) === 'log' ? target.slice(3) : target;
+  return toCompare === today;
+}
+
+const formatMinutesPastZero = (minutes: number, zeroHour: number = 0, zeroMinute: number = 0) => {
+  const dateObj = new Date(0, 0, 0, zeroHour, zeroMinute + minutes);
+  const timeString = dateObj.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
+
+  const hour = dateObj.getHours();
+  const minute = dateObj.getMinutes();
+  const am = timeString.slice(-2);
+
+  return {hour, minute, am, timeString};
+}
+
+
+const timeFormatted = (timeInMinutes: any, timeZero: any) => {
+  return formatMinutesPastZero(timeInMinutes, timeZero.hour, timeZero.minute).timeString;
+}
+
+const getMinutesElapsed = (timeString: string, timeZero: any) => {
+  return 899;
+}
+
+
 // const Hello = () => {
 //   return (
 //     <div>
@@ -76,7 +128,7 @@ const About = () => {
   const Graph = (props: any) => {
     // console.log('graph data: ', props.data);
     const graphBars = props.data.map((entry: any, i: number) => {
-      // if (entry.timeBar) console.log(entry, i);
+
       const leftBarTotal = entry.leftValue ? entry.leftValue <= entry.maxLeft ? entry.leftValue : entry.maxLeft : 0;
       const leftSpace = leftBarTotal <= entry.maxLeft ? entry.maxLeft - leftBarTotal : 0;
 
@@ -296,9 +348,11 @@ const About = () => {
       const transformLogDataToMinutesData = (data: any) => {
 
         // console.log('log data to transform:', data);
+        const timeZero = data.timeZero || {hour: 6, minute: 0, am: true};
+
 
         const entryData: any = makeDataMaps(data); // build bgMap and iobMap, combine to entryData
-        let gaveBasal = 0;
+        let gaveBasal: number = 0;// | null = null;
 
         return [entryData.map((entry: any) => {
           const {bg, bgLogged, bgLabel, bgDisplay, iob, onsetLag, middlePeak, shot, time, notes} = entry;
@@ -315,11 +369,13 @@ const About = () => {
             rightText += `(${shot * -1} units basal at ${time}) `;
             rightTextColor = 'red';
             rightText += notes ? notes : '';
+            // gaveBasal = (gaveBasal || 0) + (shot * -1);
             gaveBasal += (shot * -1);
+            console.log('gaveBasal just added:', gaveBasal)
           } else {
             rightText += shot ? shot + ' ' : '';
             rightText += bgLogged ? bgLogged + ' ' + (bgLabel ? (bgLabel + ' ') : '') : '';
-            rightText += (bgLogged || shot || notes || (!(time % 60) && ((iobToDisplay > 0) || (bg >= 20)))) ? time + ' ' : '';
+            rightText += (bgLogged || shot || notes || (!(time % 60) && ((iobToDisplay > 0) || (bg >= 20)))) ? (timeFormatted(time, timeZero)) + ' ' : '';
             rightText += notes ? notes : '';
           }
           if (!rightText.length && middlePeak) {
@@ -483,39 +539,6 @@ const About = () => {
 
 
 
-
-
-
-      // date/time functions
-
-      const getDisplayDateData = (date: string) => {
-        const logPath = 'log' + date;
-        let data;
-        try {
-          data = JSON.parse(fs.readFileSync(`${__dirname}/../data/${logPath}.json`).toString());
-          return data;
-        } catch (err) {
-          return false;
-        }
-      }
-
-      const createDateTime = (dateTime: any) => {
-        return <span className="dateTime" style={ {color: dateTime.onToday ? "red" : "black"} }>{ dateTime.date }{ dateTime.onToday ? `, ${dateTime.time}` : '' }</span>
-      }
-
-      const getCurrentDateTime = () => {
-        const d = new Date()
-        const date = d.toLocaleDateString().replace(/\//g, '-');
-        const time = d.toLocaleTimeString([], {hour: 'numeric', minute:'2-digit'});
-        // also return time in minutes since 6am?
-        return {date, time};
-      }
-
-      const isTargetToday = (target: string, today: string) => {
-        const toCompare = target.slice(0,3) === 'log' ? target.slice(3) : target;
-        return toCompare === today;
-      }
-
       const Home = (props: any) => {
         const text = props.homeProps.textState;
         const textareaRef: any = useRef();
@@ -524,8 +547,13 @@ const About = () => {
         const [graphData, setGraphData] = useState([]);
         const [graphError, setGraphError] = useState('');
         const [basalTime, setBasalTime] = useState(900);
+        const [basalMessage, setBasalMessage] = useState(<span></span>);
 
-        const [sampleTime, setSampleTime] = useState(504);
+        const timeZero = {
+          hour: 6,
+          minute: 0,
+          am: true
+        }
 
         const scrollScreen = () => {
           // console.log('scroll!!!!');
@@ -539,10 +567,7 @@ const About = () => {
           // from show time bar useEffect and dataLoaded useEffect
           if (props.homeProps.displayDateTime.onToday) {
 
-            // const currentTime = props.homeProps.displayDateTime.time;
-            const currentTime = sampleTime;
-            setSampleTime((state) => state + 20);
-            console.log('sampletime:', sampleTime);
+            const currentTime = getMinutesElapsed(props.homeProps.displayDateTime.time, timeZero);
 
             const graphWithTimeBar = [...data];
             // let removeOldTimeBarIndex;
@@ -552,11 +577,10 @@ const About = () => {
                 graphWithTimeBar[i].timeBar = false;
                 // clear timeBar text?
               }
-              // if (data[i].time === currentTime) {
               const timeDiff = currentTime - data[i].time;
               if (timeDiff >= 0 && timeDiff < 5) {
                 graphWithTimeBar[i].timeBar = true;
-                graphWithTimeBar[i].timeBarText = `Current time is: ${currentTime}`;//JSON.stringify(currentTime);
+                graphWithTimeBar[i].timeBarText = `Current time is: ${timeFormatted(currentTime, timeZero)}`;
                 return graphWithTimeBar;
               }
             }
@@ -612,10 +636,11 @@ const About = () => {
         }, [currentData]);
 
 
+        // OLD pre-dataLoaded hook?
         // const currentData = getDisplayDateData(props.displayDate);
-
         // const minutesData = transformLogDataToMinutesData(currentData);
         // const graphData = transformMinutesDataToGraph(minutesData);
+
 
         const process = (val: string) => {
           // currently is a sample process, TODO: write real process/parse functions
@@ -687,36 +712,39 @@ const About = () => {
 
       // basal warning/success message logic
 
-      let gaveBasalMessage = null;
 
-      // const onToday = isTargetToday(props.homeProps.displayDateTime.date, getCurrentDateTime().date);
+      useEffect(() => {
+        let gaveBasalMessage = <span></span>;
 
-      const onToday = props.homeProps.displayDateTime.onToday;
+        // const onToday = isTargetToday(props.homeProps.displayDateTime.date, getCurrentDateTime().date);
+        const onToday = props.homeProps.displayDateTime.onToday;
 
-      // console.log('basalTime:', basalTime);
-      if (currentData.gaveBasal) {
-        const isWas = onToday ? ` Basal is DONE!!! (${currentData.gaveBasal} units)` : '';
-        gaveBasalMessage = <div className="basalMessage">{ isWas }</div>
-      } else if (!currentData.gaveBasal && props.homeProps.displayDateTime.onToday && props.homeProps.displayDateTime.time) { // need a minutes elapsed time to compare for past-basalTime check
-        gaveBasalMessage = <div className="basalMessage" style={ {color: "red"} }>
-        Basal NOT YET GIVEN!?!?!?
+        // console.log('basalTime:', basalTime);
+        if (currentData.gaveBasal && !graphError) {
+          const isWas = onToday ? ` Basal is DONE!!! (${currentData.gaveBasal} units)` : '';
+          gaveBasalMessage = <div className="basalMessage">{ isWas }</div>
+        } else if (!currentData.gaveBasal && props.homeProps.displayDateTime.onToday && (getMinutesElapsed(props.homeProps.displayDateTime.time, timeZero) >= basalTime) && !graphError) { // need a minutes elapsed time to compare for past-basalTime check
+          gaveBasalMessage = <div className="basalMessage" style={ {color: "red"} }>
+          Basal NOT YET GIVEN!?!?!?
 
-        <div>
-        <button className="dateButton" onClick={ () => {
-          navigate('back');
-        }
-      } >
-      GIVE BASAL?
-      </button>
-      </div>
+          <div>
+          <button className="dateButton" onClick={ () => {
+            navigate('back');
+          }
+        } >
+        GIVE BASAL?
+        </button>
+        </div>
 
-      </div>
-    } else if (!currentData.gaveBasal && !props.homeProps.displayDateTime.onToday) {
-      gaveBasalMessage = <div className="basalMessage" style={ {color: "black"} }>
-      No basal recorded on this date!
-      </div>
-    }
+        </div>
+      } else if (!currentData.gaveBasal && !props.homeProps.displayDateTime.onToday && !graphError) {
+        gaveBasalMessage = <div className="basalMessage" style={ {color: "black"} }>
+        No basal recorded on this date!
+        </div>
+      }
 
+      setBasalMessage(gaveBasalMessage);
+    }, [graphData]);
 
     return (
       <div className="home">
@@ -740,7 +768,9 @@ const About = () => {
       {/* give console a border and make it draggable? */}
 
       <div className="gaveBasal">
-      { gaveBasalMessage }
+      {/* { gaveBasalMessage } */}
+      { basalMessage }
+
       </div>
 
       <div className="inputArea">
