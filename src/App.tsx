@@ -54,7 +54,24 @@ const timeFormatted = (timeInMinutes: any, timeZero: any) => {
 }
 
 const getMinutesElapsed = (timeString: string, timeZero: any) => {
-  return 899;
+console.log('timeString:', timeString);
+
+  const timeSplit = timeString.split(':');
+
+  const pm = timeSplit[1].slice(-2) === 'PM';
+
+  const hour = (parseInt(timeSplit[0]) % 12) + (pm ? 12 : 0);
+  const minute = parseInt(timeSplit[1].slice(0,2));
+
+  const totalMinutes = (hour * 60) + minute;
+
+  const timeZeroMinutes = ((timeZero.hour + (timeZero.am ? 0 : 12)) * 60) + timeZero.minute;
+
+  const elapsed = totalMinutes - timeZeroMinutes;
+
+  const elapsedWraparound = elapsed < 0 ? (1440 + elapsed) : elapsed;
+
+  return elapsedWraparound;
 }
 
 
@@ -540,9 +557,9 @@ const About = () => {
 
 
       const Home = (props: any) => {
-        const text = props.homeProps.textState;
+        const text = props.textState;
         const textareaRef: any = useRef();
-        const displayDateTimeDOM = createDateTime(props.homeProps.displayDateTime);
+        const displayDateTimeDOM = createDateTime(props.displayDateTime);
         const [currentData, setCurrentData] = useState({gaveBasal: 0});
         const [graphData, setGraphData] = useState([]);
         const [graphError, setGraphError] = useState('');
@@ -565,9 +582,9 @@ const About = () => {
           // only insert timeBar if it's today
           // double check, redundant, for present calls to insertTimeBar
           // from show time bar useEffect and dataLoaded useEffect
-          if (props.homeProps.displayDateTime.onToday) {
+          if (props.displayDateTime.onToday) {
 
-            const currentTime = getMinutesElapsed(props.homeProps.displayDateTime.time, timeZero);
+            const currentTime = getMinutesElapsed(props.displayDateTime.time, timeZero);
 
             const graphWithTimeBar = [...data];
             // let removeOldTimeBarIndex;
@@ -595,24 +612,24 @@ const About = () => {
 
         // insert/show time bar in graph if it's today
         useEffect(() => {
-          if (props.homeProps.displayDateTime.onToday) {
+          if (props.displayDateTime.onToday) {
             setGraphData(insertTimeBar(graphData));
           }
-        }, [props.homeProps.displayDateTime.time]);
+        }, [props.displayDateTime.time]);
 
         useEffect(() => {
-          if (props.homeProps.scroll) scrollScreen();
-        }, [props.homeProps.scroll]);
+          if (props.scroll) scrollScreen();
+        }, [props.scroll]);
 
         useEffect(() => {
-          const dataLoaded = getDisplayDateData(props.homeProps.displayDateTime.date);
+          const dataLoaded = getDisplayDateData(props.displayDateTime.date);
           console.log('dataLoaded:', dataLoaded);
           if (dataLoaded) {
             const [minutesDataLoaded, gaveBasal] = transformLogDataToMinutesData(dataLoaded);
             dataLoaded.gaveBasal = gaveBasal;
 
             let graphDataLoaded = transformMinutesDataToGraph(minutesDataLoaded);
-            if (props.homeProps.displayDateTime.onToday) {
+            if (props.displayDateTime.onToday) {
               graphDataLoaded = insertTimeBar(graphDataLoaded);
             }
 
@@ -622,17 +639,17 @@ const About = () => {
             if (dataLoaded.basalTime) setBasalTime(dataLoaded.basalTime);
 
             // set lastOpened in logIndex
-            updateLogIndex(props.homeProps.displayDateTime.date, 'lastOpened');
+            updateLogIndex(props.displayDateTime.date, 'lastOpened');
 
           } else {
             setGraphError('Error loading entries');
           }
-        }, [props.homeProps.displayDateTime.date]);
+        }, [props.displayDateTime.date]);
 
         // scroll with graphData update?? NO, use currentData
         // so not affected by timeBar update to graphData
         useEffect(() => {
-          if (props.homeProps.scroll) scrollScreen();
+          if (props.scroll) scrollScreen();
         }, [currentData]);
 
 
@@ -650,31 +667,31 @@ const About = () => {
           //   const objToWrite = JSON.stringify({...currentData, [val]: val});
           //   fs.writeFileSync(`${__dirname}/../data/current.json`, objToWrite);
           // }
-          const res = updateLogIndex('log' + props.homeProps.displayDateTime.date, 'index');
+          const res = updateLogIndex('log' + props.displayDateTime.date, 'index');
           console.log('res:', res, val);
 
         }
 
         const submit = (val: string) => {
-          props.homeProps.setTextState('');
+          props.setTextState('');
           textareaRef.current.focus();
           if (val.length) process(val);
         }
 
         const clearText = () => {
-          props.homeProps.setTextState('');
+          props.setTextState('');
           textareaRef.current.focus();
         }
 
         const handleInput = (e: any) => {
           const val: string = e.target.value;
           const char: Number = val.charCodeAt(val.length - 1)
-          props.homeProps.setTextState(val);
+          props.setTextState(val);
           // this logic works for now but if text is pasted in with a ending CR and
           // is one char longer than current text, it will submit
           // rare occurrence though
           // how to prevent that? detect actual CR keypress??
-          if (char === 10 && (val.length - props.homeProps.textState.length === 1)) submit(val.trim());
+          if (char === 10 && (val.length - props.textState.length === 1)) submit(val.trim());
         }
 
         const inputBox: any =  <textarea ref={ textareaRef } autoComplete="off" autoFocus className="textArea" style={ {justifyContent: "right", color: "red"} } value={ text } onChange={ (e) => {
@@ -686,7 +703,7 @@ const About = () => {
         console.log('direction:', direction);
         textareaRef.current.focus();
 
-        const currentDate = props.homeProps.displayDateTime.date;
+        const currentDate = props.displayDateTime.date;
 
         if (direction === 'back' || direction === 'forward') {
           const targetDate = getTargetDateFromLogIndex(currentDate, direction === 'back' ? -1 : 1);
@@ -696,14 +713,14 @@ const About = () => {
           const onToday = isTargetToday(targetDate, getCurrentDateTime().date);
           console.log('ontoday:', onToday);
 
-          props.homeProps.setDisplayDateTime((state: any) => ({...state, date: targetDate, onToday}));
+          props.setDisplayDateTime((state: any) => ({...state, date: targetDate, onToday}));
 
-          props.homeProps.setScroll(onToday);
+          props.setScroll(onToday);
         }
 
         if (direction === 'now') {
-          props.homeProps.setDisplayDateTime((state: any) => ({...state, ...getCurrentDateTime(), onToday: true}));
-          props.homeProps.setScroll(true);
+          props.setDisplayDateTime((state: any) => ({...state, ...getCurrentDateTime(), onToday: true}));
+          props.setScroll(true);
           scrollScreen();
         }
       }
@@ -716,14 +733,14 @@ const About = () => {
       useEffect(() => {
         let gaveBasalMessage = <span></span>;
 
-        // const onToday = isTargetToday(props.homeProps.displayDateTime.date, getCurrentDateTime().date);
-        const onToday = props.homeProps.displayDateTime.onToday;
+        // const onToday = isTargetToday(props.displayDateTime.date, getCurrentDateTime().date);
+        const onToday = props.displayDateTime.onToday;
 
         // console.log('basalTime:', basalTime);
         if (currentData.gaveBasal && !graphError) {
           const isWas = onToday ? ` Basal is DONE!!! (${currentData.gaveBasal} units)` : '';
           gaveBasalMessage = <div className="basalMessage">{ isWas }</div>
-        } else if (!currentData.gaveBasal && props.homeProps.displayDateTime.onToday && (getMinutesElapsed(props.homeProps.displayDateTime.time, timeZero) >= basalTime) && !graphError) { // need a minutes elapsed time to compare for past-basalTime check
+        } else if (!currentData.gaveBasal && props.displayDateTime.onToday && (getMinutesElapsed(props.displayDateTime.time, timeZero) >= basalTime) && !graphError) { // need a minutes elapsed time to compare for past-basalTime check
           gaveBasalMessage = <div className="basalMessage" style={ {color: "red"} }>
           Basal NOT YET GIVEN!?!?!?
 
@@ -737,7 +754,7 @@ const About = () => {
         </div>
 
         </div>
-      } else if (!currentData.gaveBasal && !props.homeProps.displayDateTime.onToday && !graphError) {
+      } else if (!currentData.gaveBasal && !props.displayDateTime.onToday && !graphError) {
         gaveBasalMessage = <div className="basalMessage" style={ {color: "black"} }>
         No basal recorded on this date!
         </div>
@@ -867,7 +884,8 @@ export default function App() {
     <Switch>
 
 
-    <Route exact path="/"><Home homeProps={ propsObj }/></Route>
+    {/* <Route exact path="/"><Home homeProps={ propsObj }/></Route> */}
+    <Route exact path="/"><Home { ...propsObj }/></Route>
 
     {/* <Route exact path="/"><Home text={ textState } setText={ setTextState } displayDate={ displayDate } setDisplayDate={ setDisplayDate } scroll={ scroll } setScroll={ setScroll }/></Route> */}
 
