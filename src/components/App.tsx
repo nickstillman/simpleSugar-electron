@@ -14,7 +14,6 @@ import {calcIobAndBgVals, makeDataMaps, transformLogDataToMinutesData, transform
 
 import {parseDate, getTargetDateFromLogIndex, sortLogIndex, updateLogIndex} from '../utils/log-db-utils';
 
-
 const { useState, useEffect, useRef } = React;
 
 export default function App() {

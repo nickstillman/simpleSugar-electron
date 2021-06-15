@@ -26,7 +26,6 @@ export const getTargetDateFromLogIndex = (current: string, offset: number) => {
   const {index} = logIndex;
 
   let currentLogIndex = index.indexOf('log' + current);
-  console.log('currentLogIndex:', currentLogIndex, index);
 
   if (currentLogIndex === -1) {
     if (offset > -1) return current;

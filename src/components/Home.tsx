@@ -54,7 +54,8 @@ const Home = (props: any) => {
           // clear timeBar text?
         }
         const timeDiff = currentTime - data[i].time;
-        if (timeDiff >= 0 && timeDiff < 5) {
+console.log('timeDiff:', timeDiff);
+        if (timeDiff >= 0 && timeDiff < 10) {
           graphWithTimeBar[i].timeBar = true;
           graphWithTimeBar[i].timeBarText = `Current time is: ${timeFormatted(currentTime, timeZero)}`;
           return graphWithTimeBar;
@@ -71,7 +72,7 @@ const Home = (props: any) => {
 
   // insert/show time bar in graph if it's today
   useEffect(() => {
-    // console.log('TIMEBARRRR');
+    console.log('TIMEBARRRR');
     if (props.displayDateTime.onToday) {
       setGraphData(insertTimeBar(graphData));
     }
