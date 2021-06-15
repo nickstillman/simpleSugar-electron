@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 export const parseDate = (date: string) => {
   let toSplit = date;
   if (toSplit.slice(0,3) === 'log') toSplit = toSplit.slice(3)

@@ -1,3 +1,5 @@
+import React from 'react';
+
 const Graph = (props: any) => {
     // console.log('graph data: ', props.data);
     const graphBars = props.data.map((entry: any, i: number) => {

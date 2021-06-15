@@ -1,3 +1,6 @@
+import React from 'react';
+import fs from 'fs';
+
 
 // date/time functions
 
@@ -9,6 +12,7 @@ export const getDisplayDateData = (date: string) => {
     data = JSON.parse(fs.readFileSync(`${__dirname}/../data/${logPath}.json`).toString());
     return data;
   } catch (err) {
+console.log(err);
     return false;
   }
 }
@@ -26,6 +30,7 @@ export const getCurrentDateTime = () => {
 }
 
 export const isTargetToday = (target: string, today: string) => {
+console.log('target:', target);
   const toCompare = target.slice(0,3) === 'log' ? target.slice(3) : target;
   return toCompare === today;
 }
