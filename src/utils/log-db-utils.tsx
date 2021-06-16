@@ -5,11 +5,12 @@ export const parseDate = (date: string) => {
   if (toSplit.slice(0,3) === 'log') toSplit = toSplit.slice(3)
   const split = toSplit.split('-');
   return split.map(el => parseInt(el));
-}
+};
+
+
 
 // find target for date navigation
-
-export const getTargetDateFromLogIndex = (current: string, offset: number) => {
+export const getTargetDateFromLogIndex = (current: string, offset: number): string | Boolean => {
   const logIndexPath = 'logIndex';
   let logIndex: any;
 
@@ -37,7 +38,7 @@ export const getTargetDateFromLogIndex = (current: string, offset: number) => {
   if (targetIndex >= index.length) targetIndex = index.length - 1;
 
   return index[targetIndex].slice(3);
-}
+};
 
 // sort log index
 
@@ -53,10 +54,14 @@ export const sortLogIndex = (logIndexArray: string[]) => {
     return yearDiff || monthDiff || dayDiff;
   }
   logIndexArray.sort(compareDates);
-}
+};
 
-// update logIndex if current day doesn't exist
-export const updateLogIndex = (currentLogDate: string, keyToUpdate: string) => {
+// update logIndex if current day (passed-in date, maybe not today) doesn't exist
+export const updateLogIndex = (currentLogDateRaw: string, keyToUpdate: string) => {
+  let currentLogDate = currentLogDateRaw;
+  if (currentLogDate.slice(0,3) !== 'log') {
+    currentLogDate = 'log' + currentLogDate;
+  }
 
   const logIndexPath = 'logIndex';
   let logIndex: any;
@@ -94,4 +99,66 @@ export const updateLogIndex = (currentLogDate: string, keyToUpdate: string) => {
     }
   }
   return true;
+};
+
+
+// get data for specified date
+export const getDataForDate = (date: string) => {
+  const logPath = 'log' + date;
+  let data;
+  try {
+    data = JSON.parse(fs.readFileSync(`${__dirname}/../data/${logPath}.json`).toString());
+    return data;
+  } catch (err) {
+    console.log(err);
+    return false;
+  }
+};
+
+// create entry object
+export const createEntryObj = (time: number, shot: Number, bg: number, bgLabel: string, notes: string, date: any, setBasalTime: Boolean = false) => {
+
+  // make sure to create date object of {month, day, year}
+
+  return {
+    time,
+    date,
+    shot,
+    bg,
+    bgLabel,
+    notes,
+    setBasalTime
+  }
+};
+
+
+
+// insert entry object in specified date
+// options specify how to resolve issues
+// -date doesn't exist
+// -duplicate entry
+// etc...
+export const insertEntryObj = (entryObj: any, options: any) => {
+
+  // identify date obj
+
+  // check if log file for date exists
+
+  // if not, (check options?)
+  // create log file and boilerplate, set log date object
+  // initialize as current log data
+
+  // if so, get current log data (getDisplayDateData)
+
+  // if setBasalTime is true, set basal time to entry.time, continue
+
+  // else check if entry at time exists
+
+  // if so, follow options for duplicate entry
+
+  // add entryObj to data with entry.time as key
+
+
+
 }
+

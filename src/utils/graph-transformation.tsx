@@ -110,7 +110,7 @@ export const calcIobAndBgVals = (data: any) => {
   }
 
   return [iobVals, bgVals];
-}
+};
 
 export const makeDataMaps = (data: any) => {
   const output: any = [];
@@ -147,7 +147,7 @@ export const makeDataMaps = (data: any) => {
   }
 
   return output;
-}
+};
 
 export const transformLogDataToMinutesData = (data: any) => {
 
@@ -199,9 +199,7 @@ export const transformLogDataToMinutesData = (data: any) => {
       time
     }
   }), gaveBasal];
-
-
-}
+};
 
 export const transformMinutesDataToGraph = (dataAllMinutes: any) => {
   // console.log('minutes data to transform:', dataAllMinutes);
@@ -239,4 +237,4 @@ export const transformMinutesDataToGraph = (dataAllMinutes: any) => {
     }
     return acc;
   }, []);
-}
+};

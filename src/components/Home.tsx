@@ -8,11 +8,11 @@ import GraphWrapper from './GraphWrapper';
 
 import Console from './Console';
 
-import {getDisplayDateData, createDateTime, getCurrentDateTime, isTargetToday, formatMinutesPastZero, timeFormatted, getMinutesElapsed} from '../utils/date-time';
+import {createDateTime, getCurrentDateTime, isTargetToday, formatMinutesPastZero, timeFormatted, getMinutesElapsed} from '../utils/date-time';
 
 import {calcIobAndBgVals, makeDataMaps, transformLogDataToMinutesData, transformMinutesDataToGraph} from '../utils/graph-transformation';
 
-import {parseDate, getTargetDateFromLogIndex, sortLogIndex, updateLogIndex} from '../utils/log-db-utils';
+import {parseDate, getTargetDateFromLogIndex, sortLogIndex, updateLogIndex, getDataForDate} from '../utils/log-db-utils';
 
 const { useState, useEffect, useRef } = React;
 
@@ -31,16 +31,15 @@ const Home = (props: any) => {
     hour: 6,
     minute: 0,
     am: true
-  }
+  };
 
   const scrollScreen = () => {
     // console.log('scroll!!!!');
     const bottom: any = document.getElementById('bottom');
     bottom?.scrollIntoView({ behavior: 'smooth' });
-  }
+  };
 
   const insertTimeBar = (data: any) => {
-    console.log('ITB data:', data)
     // only insert timeBar if it's today
     // double check, redundant, for present calls to insertTimeBar
     // from show time bar useEffect and dataLoaded useEffect
@@ -49,12 +48,10 @@ const Home = (props: any) => {
       const currentTime = getMinutesElapsed(props.displayDateTime.time, timeZero);
 
       const graphWithTimeBar = [...data];
-      // let removeOldTimeBarIndex;
 
       for (let i = 0; i < data.length; i++) {
         if (data[i].timeBar) {
           graphWithTimeBar[i].timeBar = false;
-          // clear timeBar text?
         }
         const timeDiff = currentTime - data[i].time;
 
@@ -68,31 +65,18 @@ const Home = (props: any) => {
       return graphWithTimeBar;
     }
     return data;
-  }
+  };
 
   useEffect(() => {
     textareaRef.current.setSelectionRange(text.length, text.length);
   }, []);
-
-
-
-  // insert/show time bar in graph if it's today
-  // WHY DOES THIS NEED TO BE HERE AND NOT BELOW????
-  // useEffect(() => {
-  //   console.log('TIMEBARRRR');
-  //   if (props.displayDateTime.onToday) {
-  //     console.log('setting ggraphData with timebar');
-  //     setGraphData(insertTimeBar(graphData));
-  //   }
-  // }, [props.displayDateTime.time]);
-
 
   useEffect(() => {
     if (props.scroll) scrollScreen();
   }, [props.scroll]);
 
   useEffect(() => {
-    const dataLoaded = getDisplayDateData(props.displayDateTime.date);
+    const dataLoaded = getDataForDate(props.displayDateTime.date);
     console.log('dataLoaded:', dataLoaded);
     if (dataLoaded) {
       const [minutesDataLoaded, gaveBasal] = transformLogDataToMinutesData(dataLoaded);
@@ -122,12 +106,8 @@ const Home = (props: any) => {
     if (props.scroll) scrollScreen();
   }, [currentData]);
 
-
-
   // // insert/show time bar in graph if it's today
-  // // WHY DOES THIS NEED TO BE ABOVE AND NOT HERE????
   useEffect(() => {
-    console.log('TIMEBARRRR', graphData);
     if (props.displayDateTime.onToday && graphData.length) {
       setGraphData(insertTimeBar(graphData));
     }
@@ -147,7 +127,7 @@ const Home = (props: any) => {
     const res = updateLogIndex('log' + props.displayDateTime.date, 'index');
     console.log('res:', res, val);
 
-  }
+  };
 
   const navigate = (direction: string) => {
     console.log('direction:', direction);
@@ -159,13 +139,16 @@ const Home = (props: any) => {
       const targetDate = getTargetDateFromLogIndex(currentDate, direction === 'back' ? -1 : 1);
 
       console.log('currentDate, targetDate:', currentDate, targetDate);
+      if (typeof targetDate === 'string') {
+        const onToday = isTargetToday(targetDate, getCurrentDateTime().date);
+        console.log('ontoday:', onToday);
 
-      const onToday = isTargetToday(targetDate, getCurrentDateTime().date);
-      console.log('ontoday:', onToday);
+        props.setDisplayDateTime((state: any) => ({...state, date: targetDate, onToday}));
 
-      props.setDisplayDateTime((state: any) => ({...state, date: targetDate, onToday}));
-
-      props.setScroll(onToday);
+        props.setScroll(onToday);
+      } else {
+        console.log('Cannot get target date from logIndex');
+      }
     }
 
     if (direction === 'now') {
@@ -173,7 +156,7 @@ const Home = (props: any) => {
       props.setScroll(true);
       scrollScreen();
     }
-  }
+  };
 
 
   // basal warning/success message logic
@@ -188,13 +171,17 @@ const Home = (props: any) => {
     if (currentData.gaveBasal && !graphError) {
       const isWas = onToday ? ` Basal is DONE!!! (${currentData.gaveBasal} units)` : '';
       gaveBasalMessage = <div className="basalMessage">{ isWas }</div>
-    } else if (!currentData.gaveBasal && props.displayDateTime.onToday && (getMinutesElapsed(props.displayDateTime.time, timeZero) >= basalTime) && !graphError) { // need a minutes elapsed time to compare for past-basalTime check
+    } else if (!currentData.gaveBasal && props.displayDateTime.onToday && (getMinutesElapsed(props.displayDateTime.time, timeZero) >= basalTime) && !graphError) {
       gaveBasalMessage = <div className="basalMessage" style={ {color: "red"} }>
       Basal NOT YET GIVEN!?!?!?
 
       <div>
       <button className="dateButton" onClick={ () => {
         navigate('back');
+        // change this onClick to retrieve the basal given at the most recent entry
+        // when basal was given (within 10 days?)
+        // or else either don't add or prompt for basal amount?
+        // then create an entry with this info and call insertEntry
       }
     } >
     GIVE BASAL?
