@@ -4,7 +4,9 @@ import React from 'react';
 import '../App.global.css';
 // import fs from 'fs';
 
-import Graph from './Graph';
+import GraphWrapper from './GraphWrapper';
+
+import Console from './Console';
 
 import {getDisplayDateData, createDateTime, getCurrentDateTime, isTargetToday, formatMinutesPastZero, timeFormatted, getMinutesElapsed} from '../utils/date-time';
 
@@ -38,6 +40,7 @@ const Home = (props: any) => {
   }
 
   const insertTimeBar = (data: any) => {
+    console.log('ITB data:', data)
     // only insert timeBar if it's today
     // double check, redundant, for present calls to insertTimeBar
     // from show time bar useEffect and dataLoaded useEffect
@@ -54,13 +57,14 @@ const Home = (props: any) => {
           // clear timeBar text?
         }
         const timeDiff = currentTime - data[i].time;
-console.log('timeDiff:', timeDiff);
+
         if (timeDiff >= 0 && timeDiff < 10) {
           graphWithTimeBar[i].timeBar = true;
           graphWithTimeBar[i].timeBarText = `Current time is: ${timeFormatted(currentTime, timeZero)}`;
           return graphWithTimeBar;
         }
       }
+      console.log('returning data: ', graphWithTimeBar);
       return graphWithTimeBar;
     }
     return data;
@@ -70,13 +74,18 @@ console.log('timeDiff:', timeDiff);
     textareaRef.current.setSelectionRange(text.length, text.length);
   }, []);
 
+
+
   // insert/show time bar in graph if it's today
+  // WHY DOES THIS NEED TO BE HERE AND NOT BELOW????
   useEffect(() => {
     console.log('TIMEBARRRR');
     if (props.displayDateTime.onToday) {
+      console.log('setting ggraphData with timebar');
       setGraphData(insertTimeBar(graphData));
     }
   }, [props.displayDateTime.time]);
+
 
   useEffect(() => {
     if (props.scroll) scrollScreen();
@@ -114,14 +123,21 @@ console.log('timeDiff:', timeDiff);
   }, [currentData]);
 
 
-  // OLD pre-dataLoaded hook?
-  // const currentData = getDisplayDateData(props.displayDate);
-  // const minutesData = transformLogDataToMinutesData(currentData);
-  // const graphData = transformMinutesDataToGraph(minutesData);
+
+  // // insert/show time bar in graph if it's today
+  // // WHY DOES THIS NEED TO BE ABOVE AND NOT HERE????
+  // useEffect(() => {
+  //   console.log('TIMEBARRRR', graphData);
+  //   if (props.displayDateTime.onToday) {
+  //     setGraphData(insertTimeBar(graphData));
+  //   }
+  // }, [props.displayDateTime.time]);
+
 
 
   const process = (val: string) => {
     // currently is a sample process, TODO: write real process/parse functions
+
     // if (val === 'reset') {
     //   fs.writeFileSync(`${__dirname}/../data/current.json`, '{}');
     // } else {
@@ -133,179 +149,82 @@ console.log('timeDiff:', timeDiff);
 
   }
 
-  const submit = (val: string) => {
-    props.setTextState('');
+  const navigate = (direction: string) => {
+    console.log('direction:', direction);
     textareaRef.current.focus();
-    if (val.length) process(val);
-  }
 
-  const clearText = () => {
-    props.setTextState('');
-    textareaRef.current.focus();
-  }
+    const currentDate = props.displayDateTime.date;
 
-  const handleInput = (e: any) => {
-    const val: string = e.target.value;
-    const char: Number = val.charCodeAt(val.length - 1)
-    props.setTextState(val);
-    // this logic works for now but if text is pasted in with a ending CR and
-    // is one char longer than current text, it will submit
-    // rare occurrence though
-    // how to prevent that? detect actual CR keypress??
-    if (char === 10 && (val.length - props.textState.length === 1)) submit(val.trim());
-  }
+    if (direction === 'back' || direction === 'forward') {
+      const targetDate = getTargetDateFromLogIndex(currentDate, direction === 'back' ? -1 : 1);
 
-  const inputBox: any =  <textarea ref={ textareaRef } autoComplete="off" autoFocus className="textArea" style={ {justifyContent: "right", color: "red"} } value={ text } onChange={ (e) => {
-    handleInput(e);
-  }
-} />
+      console.log('currentDate, targetDate:', currentDate, targetDate);
 
-const navigate = (direction: string) => {
-  console.log('direction:', direction);
-  textareaRef.current.focus();
+      const onToday = isTargetToday(targetDate, getCurrentDateTime().date);
+      console.log('ontoday:', onToday);
 
-  const currentDate = props.displayDateTime.date;
+      props.setDisplayDateTime((state: any) => ({...state, date: targetDate, onToday}));
 
-  if (direction === 'back' || direction === 'forward') {
-    const targetDate = getTargetDateFromLogIndex(currentDate, direction === 'back' ? -1 : 1);
-
-    console.log('currentDate, targetDate:', currentDate, targetDate);
-
-    const onToday = isTargetToday(targetDate, getCurrentDateTime().date);
-    console.log('ontoday:', onToday);
-
-    props.setDisplayDateTime((state: any) => ({...state, date: targetDate, onToday}));
-
-    props.setScroll(onToday);
-  }
-
-  if (direction === 'now') {
-    props.setDisplayDateTime((state: any) => ({...state, ...getCurrentDateTime(), onToday: true}));
-    props.setScroll(true);
-    scrollScreen();
-  }
-}
-
-
-
-// basal warning/success message logic
-
-
-useEffect(() => {
-  let gaveBasalMessage = <span></span>;
-
-  // const onToday = isTargetToday(props.displayDateTime.date, getCurrentDateTime().date);
-  const onToday = props.displayDateTime.onToday;
-
-  // console.log('basalTime:', basalTime);
-  if (currentData.gaveBasal && !graphError) {
-    const isWas = onToday ? ` Basal is DONE!!! (${currentData.gaveBasal} units)` : '';
-    gaveBasalMessage = <div className="basalMessage">{ isWas }</div>
-  } else if (!currentData.gaveBasal && props.displayDateTime.onToday && (getMinutesElapsed(props.displayDateTime.time, timeZero) >= basalTime) && !graphError) { // need a minutes elapsed time to compare for past-basalTime check
-    gaveBasalMessage = <div className="basalMessage" style={ {color: "red"} }>
-    Basal NOT YET GIVEN!?!?!?
-
-    <div>
-    <button className="dateButton" onClick={ () => {
-      navigate('back');
+      props.setScroll(onToday);
     }
-  } >
-  GIVE BASAL?
-  </button>
-  </div>
 
-  </div>
-} else if (!currentData.gaveBasal && !props.displayDateTime.onToday && !graphError) {
-  gaveBasalMessage = <div className="basalMessage" style={ {color: "black"} }>
-  No basal recorded on this date!
-  </div>
-}
+    if (direction === 'now') {
+      props.setDisplayDateTime((state: any) => ({...state, ...getCurrentDateTime(), onToday: true}));
+      props.setScroll(true);
+      scrollScreen();
+    }
+  }
 
-setBasalMessage(gaveBasalMessage);
+
+  // basal warning/success message logic
+
+  useEffect(() => {
+    let gaveBasalMessage = <span></span>;
+
+    // const onToday = isTargetToday(props.displayDateTime.date, getCurrentDateTime().date);
+    const onToday = props.displayDateTime.onToday;
+
+    // console.log('basalTime:', basalTime);
+    if (currentData.gaveBasal && !graphError) {
+      const isWas = onToday ? ` Basal is DONE!!! (${currentData.gaveBasal} units)` : '';
+      gaveBasalMessage = <div className="basalMessage">{ isWas }</div>
+    } else if (!currentData.gaveBasal && props.displayDateTime.onToday && (getMinutesElapsed(props.displayDateTime.time, timeZero) >= basalTime) && !graphError) { // need a minutes elapsed time to compare for past-basalTime check
+      gaveBasalMessage = <div className="basalMessage" style={ {color: "red"} }>
+      Basal NOT YET GIVEN!?!?!?
+
+      <div>
+      <button className="dateButton" onClick={ () => {
+        navigate('back');
+      }
+    } >
+    GIVE BASAL?
+    </button>
+    </div>
+
+    </div>
+  } else if (!currentData.gaveBasal && !props.displayDateTime.onToday && !graphError) {
+    gaveBasalMessage = <div className="basalMessage" style={ {color: "black"} }>
+    No basal recorded on this date!
+    </div>
+  }
+
+  setBasalMessage(gaveBasalMessage);
 }, [graphData]);
+
+
+const consoleObj = {text, displayDateTimeDOM, basalMessage, textareaRef, process, navigate};
+
+const graphWrapperObj = {graphError, graphData};
 
 return (
   <div className="home">
 
-  <div className="graphArea">
-  { graphError ? <div className="graphError"> { graphError } </div> : <Graph data={ graphData }/> }
-  </div>
+  <GraphWrapper { ...graphWrapperObj }/>
 
-  {/* <div>
-    <Link className="basic-centered" to="/about">
-    <button type="button">
-    <span role="img" aria-label="books">
-    📚
-    </span>
-    Go to About Page
-    </button>
-    </Link>
-  </div> */}
-
-  <div className="console">
-  {/* give console a border and make it draggable? */}
-
-  <div className="gaveBasal">
-  {/* { gaveBasalMessage } */}
-  { basalMessage }
+  <Console { ...props } { ...consoleObj } />
 
   </div>
-
-  <div className="inputArea">
-  {/* give inputArea a border and make it draggable? NO, USE CONSOLE! */}
-
-  <div className="dateButtons">
-  <button className="dateButton" onClick={ () => {
-    navigate('back');
-  }
-} >
-Back
-</button>
-
-<button className="dateButton" onClick={ () => {
-  navigate('forward');
-}
-} >
-Forward
-</button>
-
-<button className="dateButton" onClick={ () => {
-  navigate('now');
-}
-} >
-Now
-</button>
-</div>
-
-<div className="dateDisplay">
-{ displayDateTimeDOM }
-</div>
-<div>
-{ inputBox }
-</div>
-
-<div className="inputButtons">
-<button className="inputButton" onClick={ () => {
-  submit(text);
-}
-} >
-Submit
-</button>
-
-<button className="inputButton" onClick={ () => {
-  clearText();
-}
-} >
-Clear
-</button>
-</div>
-
-</div>
-
-</div>
-
-</div>
-);
+  );
 };
 
 export default Home;

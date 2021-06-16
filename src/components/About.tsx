@@ -49,6 +49,19 @@ import { Link } from 'react-router-dom';
 //     );
 //   };
 
+
+// link to About, from Home
+/* <div>
+    <Link className="basic-centered" to="/about">
+    <button type="button">
+    <span role="img" aria-label="books">
+    📚
+    </span>
+    Go to About Page
+    </button>
+    </Link>
+  </div> */
+
 const About = () => {
   return (
     <div>
