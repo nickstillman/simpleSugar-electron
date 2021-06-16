@@ -78,13 +78,13 @@ const Home = (props: any) => {
 
   // insert/show time bar in graph if it's today
   // WHY DOES THIS NEED TO BE HERE AND NOT BELOW????
-  useEffect(() => {
-    console.log('TIMEBARRRR');
-    if (props.displayDateTime.onToday) {
-      console.log('setting ggraphData with timebar');
-      setGraphData(insertTimeBar(graphData));
-    }
-  }, [props.displayDateTime.time]);
+  // useEffect(() => {
+  //   console.log('TIMEBARRRR');
+  //   if (props.displayDateTime.onToday) {
+  //     console.log('setting ggraphData with timebar');
+  //     setGraphData(insertTimeBar(graphData));
+  //   }
+  // }, [props.displayDateTime.time]);
 
 
   useEffect(() => {
@@ -126,12 +126,12 @@ const Home = (props: any) => {
 
   // // insert/show time bar in graph if it's today
   // // WHY DOES THIS NEED TO BE ABOVE AND NOT HERE????
-  // useEffect(() => {
-  //   console.log('TIMEBARRRR', graphData);
-  //   if (props.displayDateTime.onToday) {
-  //     setGraphData(insertTimeBar(graphData));
-  //   }
-  // }, [props.displayDateTime.time]);
+  useEffect(() => {
+    console.log('TIMEBARRRR', graphData);
+    if (props.displayDateTime.onToday && graphData.length) {
+      setGraphData(insertTimeBar(graphData));
+    }
+  }, [props.displayDateTime.time]);
 
 
 
