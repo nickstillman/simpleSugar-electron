@@ -1,16 +1,23 @@
 import fs from 'fs';
 
-export const parseDate = (date: string) => {
+// update any type for parseDate return
+// will be type dateObject?
+export const parseDate = (date: string, toObject: boolean = false): number[] | any => {
   let toSplit = date;
-  if (toSplit.slice(0,3) === 'log') toSplit = toSplit.slice(3)
-  const split = toSplit.split('-');
-  return split.map(el => parseInt(el));
+  if (toSplit.slice(0,3) === 'log') {
+    toSplit = toSplit.slice(3);
+  }
+  const split = toSplit.split('-').map(el => parseInt(el));
+
+  return toObject ? {month: split[0], day: split[1], year: split[2]} : split;
 };
 
-
+export const dateObjtoString = (date: any) => {
+  return `${date.month}-${date.day}-${date.year}`;
+}
 
 // find target for date navigation
-export const getTargetDateFromLogIndex = (current: string, offset: number): string | Boolean => {
+export const getTargetDateFromLogIndex = (current: string, offset: number): string | boolean => {
   const logIndexPath = 'logIndex';
   let logIndex: any;
 
@@ -104,7 +111,11 @@ export const updateLogIndex = (currentLogDateRaw: string, keyToUpdate: string) =
 
 // get data for specified date
 export const getDataForDate = (date: string) => {
-  const logPath = 'log' + date;
+  let logPath = date;
+  if (logPath.slice(0,3) !== 'log') {
+    logPath = 'log' + date;
+  }
+
   let data;
   try {
     data = JSON.parse(fs.readFileSync(`${__dirname}/../data/${logPath}.json`).toString());
@@ -116,9 +127,7 @@ export const getDataForDate = (date: string) => {
 };
 
 // create entry object
-export const createEntryObj = (time: number, shot: Number, bg: number, bgLabel: string, notes: string, date: any, setBasalTime: Boolean = false) => {
-
-  // make sure to create date object of {month, day, year}
+export const createEntryObj = (time: number, shot: number, bg: number, bgLabel: string, notes: string, date: string, setBasalTime: Boolean = false) => {
 
   return {
     time,
@@ -139,26 +148,34 @@ export const createEntryObj = (time: number, shot: Number, bg: number, bgLabel: 
 // -duplicate entry
 // etc...
 export const insertEntryObj = (entryObj: any, options: any) => {
+  const logPath = 'log' + entryObj.date;
+  let objToWrite;
 
-  // identify date obj
+  if (!fs.existsSync(`${__dirname}/../data/${logPath}.json`)) {
+    console.log(`Log file for ${entryObj.date} does not exist`);
+    // check options here
 
-  // check if log file for date exists
+    objToWrite = {...entryObj, date: parseDate(entryObj.date, true)}
+  } else {
+    objToWrite = getDataForDate(entryObj.date);
+    if (!objToWrite) return false;
+  }
 
-  // if not, (check options?)
-  // create log file and boilerplate, set log date object
-  // initialize as current log data
+  if (entryObj.setBasalTime) {
+    objToWrite.basalTime = entryObj.time;
+  } else {
+    if (objToWrite[entryObj.time]) {
+      console.log(`Entry for ${entryObj.time} already exists`);
+      // if entry for time aleady exists, follow options for duplicate entry
+    }
+    objToWrite[entryObj.time] = entryObj;
+  }
 
-  // if so, get current log data (getDisplayDateData)
-
-  // if setBasalTime is true, set basal time to entry.time, continue
-
-  // else check if entry at time exists
-
-  // if so, follow options for duplicate entry
-
-  // add entryObj to data with entry.time as key
-
-
-
+  try {
+    fs.writeFileSync(`${__dirname}/../data/${logPath}.json`, objToWrite, {flag: 'w'});
+  } catch (err) {
+    return false;
+  }
+  return objToWrite;
 }
 
